@@ -1,8 +1,11 @@
 /*
- * Offline cache. Everything the app needs is precached on first visit, so
- * later visits work with weak or no Wi-Fi. Bump VERSION when files change.
+ * Offline cache. Everything the app needs is precached on first visit so
+ * it works with weak or no Wi-Fi, but requests go to the network first,
+ * so a new deploy shows up on the next load. The saved copy is used when
+ * offline, or when the network takes more than a few seconds.
+ * Bump VERSION when files change.
  */
-var VERSION = 'capitals-v3';
+var VERSION = 'capitals-v4';
 var FILES = [
   './', 'index.html', 'css/styles.css',
   'data/countries.js', 'data/map.js',
@@ -12,6 +15,7 @@ var FILES = [
   'fonts/twemoji-country-flags.woff2',
   'icons/icon.svg', 'icons/apple-touch-icon.png', 'manifest.webmanifest'
 ];
+var SLOW_MS = 4000;
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
@@ -19,20 +23,41 @@ self.addEventListener('install', function (e) {
 
 self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (keys) {
-    return Promise.all(keys.filter(function (k) { return k !== VERSION; }).map(function (k) { return caches.delete(k); }));
-  }).then(function () { return self.clients.claim(); }));
+    var old = keys.filter(function (k) { return k !== VERSION; });
+    return Promise.all(old.map(function (k) { return caches.delete(k); })).then(function () { return old.length > 0; });
+  }).then(function (upgraded) {
+    return self.clients.claim().then(function () {
+      if (!upgraded) return;
+      // Pages still showing an older version reload onto this one. Older
+      // workers served from the cache first, so without this an update
+      // only appeared after a second refresh.
+      return self.clients.matchAll({ type: 'window' }).then(function (wins) {
+        wins.forEach(function (w) {
+          if (w.navigate) w.navigate(w.url).catch(function () {});
+        });
+      });
+    });
+  }));
 });
 
-// Cache first, then network; refresh the cache in the background.
+function fromCache(req) {
+  return caches.match(req, { ignoreSearch: true });
+}
+
 self.addEventListener('fetch', function (e) {
-  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(caches.open(VERSION).then(function (cache) {
-    return cache.match(e.request, { ignoreSearch: true }).then(function (hit) {
-      var net = fetch(e.request).then(function (res) {
-        if (res.ok) cache.put(e.request, res.clone());
-        return res;
-      }).catch(function () { return hit; });
-      return hit || net;
-    });
+  var req = e.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  var net = fetch(req).then(function (res) {
+    if (res.ok) {
+      var copy = res.clone();
+      caches.open(VERSION).then(function (c) { return c.put(req, copy); });
+    }
+    return res;
+  });
+  var slow = new Promise(function (resolve) {
+    setTimeout(function () { fromCache(req).then(function (hit) { if (hit) resolve(hit); }); }, SLOW_MS);
+  });
+  e.respondWith(Promise.race([net, slow]).catch(function () {
+    return fromCache(req).then(function (hit) { return hit || Response.error(); });
   }));
 });

@@ -21,7 +21,7 @@ On iPhone, use Share → Add to Home Screen for a full-screen app that works off
 
 The repo is `noahvhh/capitals`, imported into Vercel as a project with framework preset **Other**, no build command and output directory `.` (the repo root). It's live at https://capitals-ecru.vercel.app, and every push to `main` redeploys. `vercel.json` sets caching headers for the service worker and fonts.
 
-After changing any file, bump `VERSION` in `sw.js` so phones pick up the new version.
+The service worker fetches from the network first, so a new deploy shows up on the next load; the saved copy is only used offline or when the network takes more than 4 seconds. After changing any file, bump `VERSION` in `sw.js` too, so the offline copy is replaced in one go and any page still showing an older version reloads itself.
 
 ## Files
 
