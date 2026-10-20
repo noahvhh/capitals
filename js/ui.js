@@ -14,7 +14,7 @@
   var settings = store.getSettings();
 
   var current = 'home';
-  var session = null, sessionInfo = null, revealed = false;
+  var session = null, sessionInfo = null, revealed = false, choiceMode = false;
   var timers = [], autoplayPaused = false, wakeLock = null;
 
   /* ---------- screens ---------- */
@@ -194,6 +194,8 @@
       record: function (id, ok) { store.record(deck.id, id, ok); }
     });
     autoplayPaused = false;
+    // Hands-free reveals by itself, so it always uses self-check.
+    choiceMode = settings.answerMode !== 'self' && !handsFree();
     buildStage();
     show('quiz');
     // Speaking inside the tap handler unlocks speech on iOS.
@@ -233,7 +235,23 @@
     bar.setAttribute('aria-valuenow', session.index);
     $('span', bar).style.transform = 'scaleX(' + (session.index / session.total) + ')';
 
-    setActions(false);
+    if (choiceMode) {
+      var box = $('#choices');
+      box.innerHTML = '';
+      box.classList.remove('answered');
+      CA.quiz.choices(deck, q.item, dir.answer.field, 4).forEach(function (v, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn choice' + (v.length > 22 ? ' long' : '');
+        b.setAttribute('data-action', 'choose');
+        b.setAttribute('data-value', v);
+        b.innerHTML = '<kbd class="kbd" aria-hidden="true"></kbd><span class="choice-text"></span>';
+        $('.kbd', b).textContent = i + 1;
+        $('.choice-text', b).textContent = v;
+        box.appendChild(b);
+      });
+    }
+    setActions(choiceMode ? 'choices' : 'reveal');
     var promptText = speakText(dir.speakPrompt, dir.prompt, q.item);
     announce(promptText);
     if (settings.voice) {
@@ -250,14 +268,15 @@
     return spec.type === 'text' ? String(item[spec.field]) : '';
   }
 
-  function setActions(isRevealed) {
-    var reveal = $('#btn-reveal'), grade = $('#grade-row');
-    reveal.hidden = isRevealed;
-    grade.hidden = !isRevealed;
-    (isRevealed ? grade : reveal).classList.remove('fade-in');
-    void (isRevealed ? grade : reveal).offsetWidth;
-    (isRevealed ? grade : reveal).classList.add('fade-in');
-    if (isRevealed) $('[data-action="got-it"]').focus({ preventScroll: true });
+  // state: 'reveal' | 'grade' | 'choices'
+  function setActions(state) {
+    var els = { reveal: $('#btn-reveal'), grade: $('#grade-row'), choices: $('#choices') };
+    Object.keys(els).forEach(function (k) { els[k].hidden = k !== state; });
+    var el = els[state];
+    el.classList.remove('fade-in');
+    void el.offsetWidth;
+    el.classList.add('fade-in');
+    if (state === 'grade') $('[data-action="got-it"]').focus({ preventScroll: true });
   }
 
   function reveal(auto) {
@@ -268,7 +287,7 @@
     var ans = $('.q-block:not(.leaving) .q-answer', stage);
     if (ans) { ans.classList.add('shown'); ans.removeAttribute('aria-hidden'); }
     mediaSlots.forEach(function (s) { s.update(q.item, true); });
-    setActions(true);
+    if (!choiceMode) setActions('grade');
     var answerText = speakText(dir.speakAnswer, dir.answer, q.item);
     announce(answerText);
     if (settings.voice) {
@@ -287,6 +306,34 @@
     clearTimers();
     CA.speech.cancel();
     session.grade(ok);
+    next();
+  }
+
+  // Multiple choice: mark the pick, show the answer, then move on by
+  // itself, sooner when right. Tapping again moves on straight away.
+  function choose(el) {
+    if (!session || !session.current) return;
+    if (revealed) return advance();
+    var q = session.current, dir = direction(q);
+    var answer = String(q.item[dir.answer.field]);
+    var right = el.getAttribute('data-value') === answer;
+    var box = $('#choices');
+    box.classList.add('answered');
+    $$('.choice', box).forEach(function (b) {
+      if (b.getAttribute('data-value') === answer) b.classList.add('is-right');
+      else if (b === el) b.classList.add('is-wrong');
+    });
+    session.grade(right);
+    reveal(false);
+    announce((right ? 'Right. ' : 'Not quite. ') + speakText(dir.speakAnswer, dir.answer, q.item));
+    var note = dir.answer.note && q.item[dir.answer.note];
+    later(advance, (right ? 900 : 2400) + (note ? 1500 : 0) + (settings.voice ? 800 : 0));
+  }
+
+  function advance() {
+    if (!session || !revealed) return;
+    clearTimers();
+    CA.speech.cancel();
     next();
   }
 
@@ -380,6 +427,8 @@
     });
     segmented($('#length-picker'), CA.config.reviewLengths.map(function (n) { return { id: n, label: String(n) }; }),
       settings.reviewLength, function (v) { store.setSetting('reviewLength', v); });
+    segmented($('#answer-picker'), [{ id: 'choices', label: '4 choices' }, { id: 'self', label: 'Self-check' }],
+      settings.answerMode, function (v) { store.setSetting('answerMode', v); });
     if (!CA.speech.supported) {
       $('[data-setting="voice"]').disabled = true;
       $('#voice-desc').textContent = 'This browser has no speech support.';
@@ -477,6 +526,7 @@
     },
     'open-settings': function () { renderSettings(); message(''); show('settings'); },
     'reveal': function () { reveal(false); },
+    'choose': function (el) { choose(el); },
     'got-it': function () { grade(true); },
     'missed': function () { grade(false); },
     'quit': quit,
@@ -500,12 +550,18 @@
     var el = e.target.closest('[data-action]');
     if (!el || el.disabled) return;
     var fn = actions[el.getAttribute('data-action')];
-    if (fn) { e.preventDefault(); fn(); }
+    if (fn) { e.preventDefault(); fn(el); }
   });
 
   document.addEventListener('keydown', function (e) {
     if (current !== 'quiz' || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'Escape') { quit(); return; }
+    if (choiceMode) {
+      var pick = $$('#choices .choice')[Number(e.key) - 1];
+      if (!revealed && pick) { e.preventDefault(); choose(pick); }
+      else if (revealed && (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight')) { e.preventDefault(); advance(); }
+      return;
+    }
     if (!revealed && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); reveal(false); return; }
     if (revealed && (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === 'j')) { e.preventDefault(); grade(true); }
     if (revealed && (e.key === 'ArrowLeft' || e.key === 'Backspace' || e.key === 'f')) { e.preventDefault(); grade(false); }

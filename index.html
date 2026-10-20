@@ -115,6 +115,7 @@
             <svg class="icon"><use href="#i-check"/></svg><span>Got it</span><kbd class="kbd" aria-hidden="true">→</kbd>
           </button>
         </div>
+        <div class="choices" hidden id="choices" role="group" aria-label="Answers"></div>
       </div>
     </section>
 
@@ -139,9 +140,13 @@
       </div>
       <div class="page">
         <h3 class="section-title">Quiz</h3>
+        <div class="field">
+          <span class="field-label" id="answer-label">Answer by</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="answer-label" id="answer-picker"></div>
+        </div>
         <label class="toggle-row">
-          <span><span class="toggle-title">Show flag and map before reveal</span>
-          <span class="toggle-desc">When asking capital → country, the flag and map give the answer away, so they are hidden until you reveal.</span></span>
+          <span><span class="toggle-title">Show flag and map before answering</span>
+          <span class="toggle-desc">When asking capital → country, the flag and map give the answer away, so they are hidden until you answer.</span></span>
           <input type="checkbox" class="switch" data-setting="mediaBeforeReveal">
         </label>
         <div class="field">
@@ -162,7 +167,7 @@
           </label>
           <label class="toggle-row">
             <span><span class="toggle-title">Hands-free</span>
-            <span class="toggle-desc">Reveals and moves on by itself, keeping the screen awake. Answers aren't scored unless you tap.</span></span>
+            <span class="toggle-desc">Reveals and moves on by itself, keeping the screen awake. Uses self-check, and answers aren't scored unless you tap.</span></span>
             <input type="checkbox" class="switch" data-setting="autoplay">
           </label>
           <label class="range-row autoplay-row">

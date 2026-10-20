@@ -43,6 +43,21 @@
       .map(function (x) { return x.it; });
   }
 
+  // n options for a multiple-choice question: the right answer plus others
+  // from the same group where there are enough, all different, shuffled.
+  function choices(deck, item, field, n) {
+    var g = deck.groupKey, same = [], rest = [], picks = [String(item[field])];
+    deck.items.forEach(function (it) {
+      if (it !== item) (g && it[g] === item[g] ? same : rest).push(it);
+    });
+    var pool = shuffle(same).concat(shuffle(rest));
+    for (var i = 0; i < pool.length && picks.length < n; i++) {
+      var v = String(pool[i][field]);
+      if (picks.indexOf(v) === -1) picks.push(v);
+    }
+    return shuffle(picks);
+  }
+
   function pickDirection(deck, setting) {
     var ids = deck.directions.map(function (d) { return d.id; });
     if (setting === 'mixed') return ids[Math.floor(Math.random() * ids.length)];
@@ -87,5 +102,5 @@
     };
   }
 
-  CA.quiz = { shuffle: shuffle, pool: pool, due: due, createSession: createSession };
+  CA.quiz = { shuffle: shuffle, pool: pool, due: due, choices: choices, createSession: createSession };
 })(window);

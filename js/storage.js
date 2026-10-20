@@ -22,6 +22,7 @@
 
   var DEFAULT_SETTINGS = {
     direction: 'forward',     // forward | reverse | mixed
+    answerMode: 'choices',    // choices (pick from 4) | self (reveal, then Got it / Missed)
     mediaBeforeReveal: false,
     reviewLength: 20,
     voice: false,

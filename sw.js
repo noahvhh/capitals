@@ -2,7 +2,7 @@
  * Offline cache. Everything the app needs is precached on first visit, so
  * later visits work with weak or no Wi-Fi. Bump VERSION when files change.
  */
-var VERSION = 'capitals-v2';
+var VERSION = 'capitals-v3';
 var FILES = [
   './', 'index.html', 'css/styles.css',
   'data/countries.js', 'data/map.js',

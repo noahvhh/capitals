@@ -47,9 +47,10 @@ tools/build-map.mjs    regenerates data/map.js (optional, needs Node)
 
 - **Review mistakes** asks only countries you've missed, worst first, up to the review length in Settings, shuffled. Each country has a miss score: a miss adds 1 and a right answer halves it, and it stays on the review list while the score is 0.3 or more. So one miss takes two right answers to clear, two misses take three. The button shows how many are waiting and is off when there are none.
 - **By continent** offers Easy, Hard and All, using the `hard` flag. **Mixed** quizzes any ticked continents. **Random** is every country, shuffled.
-- **Ask for the** capital, the country, or both (chosen per question). When asking for the country, the flag and map stay hidden until you reveal, since they'd give it away; a setting turns that off.
-- **Voice** (Settings) reads prompts and answers in en-GB at an adjustable speed. **Hands-free** reveals and moves on by itself and keeps the screen awake. iOS stops web pages when the phone is locked, so hands-free needs the screen on (it can be dimmed); no web app can keep talking with the screen fully off.
-- **Keyboard**: Space reveals, → or Enter = Got it, ← = Missed, Esc ends the session.
+- **Ask for the** capital, the country, or both (chosen per question). When asking for the country, the flag and map stay hidden until you answer, since they'd give it away; a setting turns that off.
+- **Answer by** (Settings) picking from 4 choices (the default) or with self-check (Reveal, then Got it or Missed). The wrong choices come from the same continent. After a pick the right one lights up and the next question comes by itself, sooner when you were right; tap a choice again to move on straight away.
+- **Voice** (Settings) reads prompts and answers in en-GB at an adjustable speed. **Hands-free** reveals and moves on by itself and keeps the screen awake, so it always uses self-check. iOS stops web pages when the phone is locked, so hands-free needs the screen on (it can be dimmed); no web app can keep talking with the screen fully off.
+- **Keyboard**: with choices, 1–4 picks and Space, Enter or → moves on. With self-check, Space reveals, → or Enter = Got it, ← = Missed. Esc ends the session.
 
 ## Progress and storage
 
