@@ -187,7 +187,8 @@ button, input { font: inherit; color: inherit; }
 .seg[aria-checked="true"] { background: var(--surface-2); color: var(--foreground); box-shadow: inset 0 0 0 1px var(--border-strong); }
 
 /* ---------- home ---------- */
-.home-head { padding: 2.5rem 0 1.75rem; }
+.home-head { position: relative; padding: 2.5rem 0 1.75rem; }
+.lang-btn { position: absolute; top: 0.25rem; right: -0.65rem; }
 .home-head h1 { font-size: clamp(3.25rem, 15vw, 4.75rem); line-height: 0.95; letter-spacing: -0.02em; }
 .home-stats { margin-top: 0.6rem; font-size: 0.875rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
 
@@ -258,7 +259,7 @@ input[type="range"] { width: 100%; accent-color: var(--foreground); height: 28px
    flag, the words and the buttons leave, so nothing needs scrolling. */
 .screen-quiz {
   display: flex; flex-direction: column;
-  height: 100vh; height: 100dvh; min-height: 0;
+  height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); min-height: 0;
   max-width: 42rem; padding-bottom: 0;
 }
 .counter { font-size: 0.85rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
@@ -349,6 +350,45 @@ input[type="range"] { width: 100%; accent-color: var(--foreground); height: 28px
 .choices.answered .choice.is-right { background: rgba(125, 157, 226, 0.16); border-color: var(--accent); color: var(--foreground); }
 .choices.answered .choice.is-wrong { background: rgba(227, 130, 143, 0.1); border-color: var(--destructive); color: var(--destructive); }
 .choices .choice { transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease), opacity var(--t) var(--ease), transform var(--t-fast) var(--ease); }
+
+/* typing */
+.type-form { display: flex; flex-direction: column; gap: 0.6rem; }
+.type-status {
+  min-height: 1.25rem; margin-bottom: -0.15rem;
+  font-size: 0.85rem; line-height: 1.25rem; text-align: center; color: var(--muted-foreground);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.type-status.is-right { color: var(--accent); }
+.type-status.is-wrong { color: var(--destructive); }
+.type-field { position: relative; }
+.type-input {
+  width: 100%; height: 54px; padding: 0 3.5rem 0 1rem;
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  background: var(--surface); color: var(--foreground);
+  font: 400 1.3rem/1 var(--serif); letter-spacing: 0.005em;
+  transition: border-color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+.type-input::placeholder { color: var(--muted-foreground); opacity: 0.7; font-family: var(--sans); font-size: 0.95rem; }
+.type-input:focus { outline: none; border-color: #4a4a52; background: var(--surface-2); }
+.type-input.is-right { border-color: var(--accent); background: rgba(125, 157, 226, 0.1); }
+.type-input.is-wrong { border-color: var(--destructive); }
+.type-input.shake { animation: shake 0.32s var(--ease); }
+@keyframes shake {
+  20% { transform: translateX(-6px); } 45% { transform: translateX(5px); }
+  70% { transform: translateX(-3px); } 100% { transform: none; }
+}
+.type-go {
+  position: absolute; top: 5px; right: 5px; width: 44px; height: 44px;
+  display: grid; place-items: center; border: 0; border-radius: calc(var(--radius) - 3px);
+  background: var(--primary); color: var(--primary-foreground); cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.type-go:active { transform: scale(0.95); }
+@media (hover: hover) { .type-go:hover { background: var(--primary-hover); } }
+/* While hinting, the answer slot shows the letters given so far. */
+.q-answer.hinting { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
+.q-answer.hinting .qt-main { color: var(--muted-foreground); letter-spacing: 0.12em; }
+.q-answer.hinting .qt-sub, .q-answer.hinting .qt-note { visibility: hidden; }
 .fade-in { animation: fadeIn var(--t) var(--ease); }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 
@@ -366,10 +406,26 @@ input[type="range"] { width: 100%; accent-color: var(--foreground); height: 28px
   .actions { padding: 0.6rem 0 calc(var(--safe-b) + 0.75rem); }
 }
 /* Landscape phones: let the page scroll rather than squash the map. */
-@media (max-height: 480px) {
+@media (max-height: 480px) and (min-width: 600px) {
   .screen-quiz { height: auto; min-height: 100dvh; }
   .q-slot-map { flex: none; height: 9rem; }
 }
+/* Phone keyboard open while typing: everything shrinks to fit above it. */
+.kb-open .screen-quiz .topbar { min-height: 40px; }
+.kb-open .quiz-stage { padding-top: 0.35rem; }
+.kb-open .card-q { gap: 0.4rem; }
+.kb-open .q-slot-map { min-height: 4.5rem; }
+.kb-open .q-slot-flag { height: 2.25rem; }
+.kb-open .flag { font-size: 2rem; }
+.kb-open .q-text { min-height: 5.25rem; }
+.kb-open .q-block { gap: 0.3rem; }
+.kb-open .qt-main { font-size: 1.65rem; }
+.kb-open .qt-answer .qt-main { font-size: 1.45rem; }
+.kb-open .qt-note { display: none; }
+.kb-open .q-answer::before { margin-bottom: 0.3rem; }
+.kb-open .actions { padding: 0.4rem 0 0.5rem; }
+.kb-open .type-form { gap: 0.4rem; }
+.kb-open .type-form .btn-lg { min-height: 44px; height: 44px; }
 
 /* ---------- summary ---------- */
 .done-score { font-size: clamp(4rem, 20vw, 6rem); }

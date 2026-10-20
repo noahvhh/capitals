@@ -5,6 +5,7 @@
  */
 (function (root) {
   var CA = root.CA;
+  var t = CA.i18n.t;
   var $ = function (s, el) { return (el || document).querySelector(s); };
   var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
 
@@ -14,8 +15,29 @@
   var settings = store.getSettings();
 
   var current = 'home';
-  var session = null, sessionInfo = null, revealed = false, choiceMode = false;
+  var session = null, sessionInfo = null, revealed = false;
+  var mode = 'type';                 // this session: type | choices | self
+  var tries = 0, hints = 0;          // typing: wrong attempts and hints on this question
+  var actionState = null;
   var timers = [], autoplayPaused = false, wakeLock = null;
+
+  /* ---------- language ---------- */
+
+  function setLanguage(lang, save) {
+    CA.i18n.set(lang);
+    lang = CA.i18n.lang;
+    if (deck.setLanguage) deck.setLanguage(lang);
+    CA.i18n.apply();
+    $('.lang-btn').setAttribute('lang', lang === 'es' ? 'en' : 'es');
+    if (save) store.setSetting('language', lang);
+    renderHome();
+    if (current === 'settings') renderSettings();
+    if (current === 'mixed') renderMixed();
+    updateAutoplayButton();
+  }
+
+  function speechLang() { return CA.i18n.lang === 'es' ? 'es-ES' : (settings.lang || 'en-GB'); }
+  function say(text, onend) { CA.speech.speak(text, { lang: speechLang(), rate: settings.rate }, onend); }
 
   /* ---------- screens ---------- */
 
@@ -50,6 +72,7 @@
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', String(o.id === value));
       b.textContent = o.label;
+      if (o.lang) b.setAttribute('lang', o.lang);
       b.addEventListener('click', function () {
         $$('.seg', el).forEach(function (s) { s.setAttribute('aria-checked', 'false'); });
         b.setAttribute('aria-checked', 'true');
@@ -60,28 +83,27 @@
   }
 
   function directionOptions() {
-    var opts = deck.directions.map(function (d) { return { id: d.id, label: d.short || d.label }; });
-    if (opts.length > 1) opts.push({ id: 'mixed', label: 'Both' });
+    var opts = deck.directions.map(function (d) { return { id: d.id, label: t('dir.' + d.id) }; });
+    if (opts.length > 1) opts.push({ id: 'mixed', label: t('dir.mixed') });
     return opts;
   }
+
+  var DIFFICULTIES = ['easy', 'hard', 'all'];
 
   function countFor(filter) { return CA.quiz.pool(deck, filter).length; }
   function dueItems() { return CA.quiz.due(deck, function (id) { return store.getItem(deck.id, id); }); }
 
   function renderHome() {
-    $('#home-title').textContent = deck.title;
     var sum = store.deckSummary(deck.id);
     var total = sum.right + sum.wrong;
     $('#home-stats').textContent = total
-      ? sum.seen + ' of ' + deck.items.length + ' seen · ' + Math.round(100 * sum.right / total) + '% right'
-      : deck.items.length + ' to learn';
+      ? t('home.stats', { seen: sum.seen, total: deck.items.length, pct: Math.round(100 * sum.right / total) })
+      : t('home.toLearn', { n: deck.items.length });
 
     var due = dueItems().length;
     $('#btn-review').disabled = !due;
     $('#review-count').textContent = due || '';
-    $('#review-hint').textContent = due
-      ? 'Missed ones stay here until you get them right a couple of times.'
-      : 'Nothing to review yet. Anything you miss shows up here.';
+    $('#review-hint').textContent = t(due ? 'review.some' : 'review.none');
 
     segmented($('#direction-picker'), directionOptions(), settings.direction, function (v) {
       store.setSetting('direction', v);
@@ -98,19 +120,22 @@
       li.appendChild(name);
       var btns = document.createElement('span');
       btns.className = 'continent-btns';
-      [['easy', 'Easy'], ['hard', 'Hard'], ['all', 'All']].forEach(function (d) {
-        if (!deck.hardKey && d[0] !== 'all') return;
-        var n = countFor({ groups: [g.id], difficulty: d[0] });
+      DIFFICULTIES.forEach(function (d) {
+        if (!deck.hardKey && d !== 'all') return;
+        var n = countFor({ groups: [g.id], difficulty: d });
+        var label = t('diff.' + d);
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'btn btn-sm';
         b.disabled = !n;
-        b.innerHTML = '<span>' + d[1] + '</span><span class="count">' + n + '</span>';
-        b.setAttribute('aria-label', g.label + ', ' + d[1] + ', ' + n + ' questions');
+        b.innerHTML = '<span></span><span class="count"></span>';
+        b.firstChild.textContent = label;
+        b.lastChild.textContent = n;
+        b.setAttribute('aria-label', t('continent.aria', { group: g.label, diff: label, n: n }));
         b.addEventListener('click', function () {
           startSession({
-            title: g.label + ' · ' + d[1],
-            items: CA.quiz.pool(deck, { groups: [g.id], difficulty: d[0] })
+            title: g.label + ' · ' + label,
+            items: CA.quiz.pool(deck, { groups: [g.id], difficulty: d })
           });
         });
         btns.appendChild(b);
@@ -141,12 +166,12 @@
       });
       list.appendChild(li);
     });
-    var diffs = [{ id: 'easy', label: 'Easy' }, { id: 'hard', label: 'Hard' }, { id: 'all', label: 'All' }];
     $('#mixed-diff').closest('.field').hidden = !deck.hardKey;
-    segmented($('#mixed-diff'), diffs, settings.mixedDifficulty, function (v) {
-      store.setSetting('mixedDifficulty', v);
-      updateMixedStart();
-    });
+    segmented($('#mixed-diff'), DIFFICULTIES.map(function (d) { return { id: d, label: t('diff.' + d) }; }),
+      settings.mixedDifficulty, function (v) {
+        store.setSetting('mixedDifficulty', v);
+        updateMixedStart();
+      });
     updateMixedStart();
   }
 
@@ -157,7 +182,7 @@
     var n = settings.mixedGroups.length ? mixedPool().length : 0;
     var btn = $('#mixed-start');
     btn.disabled = !n;
-    btn.textContent = n ? 'Start · ' + n : 'Pick at least one';
+    btn.textContent = n ? t('mixed.start', { n: n }) : t('mixed.pick');
   }
 
   /* ---------- quiz ---------- */
@@ -195,11 +220,13 @@
     });
     autoplayPaused = false;
     // Hands-free reveals by itself, so it always uses self-check.
-    choiceMode = settings.answerMode !== 'self' && !handsFree();
+    mode = handsFree() ? 'self' : settings.answer;
+    actionState = null;
     buildStage();
     show('quiz');
+    document.documentElement.classList.toggle('mode-type', mode === 'type');
     // Speaking inside the tap handler unlocks speech on iOS.
-    if (settings.voice) CA.speech.speak(' ', { lang: settings.lang, rate: settings.rate });
+    if (settings.voice) say(' ');
     if (handsFree()) requestWakeLock();
     updateAutoplayButton();
     next();
@@ -235,27 +262,14 @@
     bar.setAttribute('aria-valuenow', session.index);
     $('span', bar).style.transform = 'scaleX(' + (session.index / session.total) + ')';
 
-    if (choiceMode) {
-      var box = $('#choices');
-      box.innerHTML = '';
-      box.classList.remove('answered');
-      CA.quiz.choices(deck, q.item, dir.answer.field, 4).forEach(function (v, i) {
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'btn choice' + (v.length > 22 ? ' long' : '');
-        b.setAttribute('data-action', 'choose');
-        b.setAttribute('data-value', v);
-        b.innerHTML = '<kbd class="kbd" aria-hidden="true"></kbd><span class="choice-text"></span>';
-        $('.kbd', b).textContent = i + 1;
-        $('.choice-text', b).textContent = v;
-        box.appendChild(b);
-      });
-    }
-    setActions(choiceMode ? 'choices' : 'reveal');
+    if (mode === 'choices') buildChoices(q, dir);
+    if (mode === 'type') resetTyping(dir);
+    setActions(mode === 'self' ? 'reveal' : mode);
+    if (mode === 'type') input.focus({ preventScroll: true });
     var promptText = speakText(dir.speakPrompt, dir.prompt, q.item);
     announce(promptText);
     if (settings.voice) {
-      CA.speech.speak(promptText, { lang: settings.lang, rate: settings.rate }, function () {
+      say(promptText, function () {
         if (handsFree() && !autoplayPaused && session && session.current === q && !revealed) {
           later(function () { if (!revealed && session.current === q) reveal(true); }, settings.thinkSeconds * 1000);
         }
@@ -268,30 +282,43 @@
     return spec.type === 'text' ? String(item[spec.field]) : '';
   }
 
-  // state: 'reveal' | 'grade' | 'choices'
+  // state: reveal | grade | choices | type
   function setActions(state) {
-    var els = { reveal: $('#btn-reveal'), grade: $('#grade-row'), choices: $('#choices') };
+    var els = { reveal: $('#btn-reveal'), grade: $('#grade-row'), choices: $('#choices'), type: $('#type-form') };
     Object.keys(els).forEach(function (k) { els[k].hidden = k !== state; });
     var el = els[state];
-    el.classList.remove('fade-in');
-    void el.offsetWidth;
-    el.classList.add('fade-in');
+    // Fade in when the controls change, not on every question while typing.
+    if (state !== actionState || state !== 'type') {
+      el.classList.remove('fade-in');
+      void el.offsetWidth;
+      el.classList.add('fade-in');
+    }
+    actionState = state;
     if (state === 'grade') $('[data-action="got-it"]').focus({ preventScroll: true });
   }
+
+  function currentAnswer() { return $('.q-block:not(.leaving) .q-answer', stage); }
 
   function reveal(auto) {
     if (!session || !session.current || revealed) return;
     revealed = true;
     clearTimers();
     var q = session.current, dir = direction(q);
-    var ans = $('.q-block:not(.leaving) .q-answer', stage);
-    if (ans) { ans.classList.add('shown'); ans.removeAttribute('aria-hidden'); }
+    var ans = currentAnswer();
+    if (ans) {
+      if (ans.classList.contains('hinting')) {
+        $('.qt-main', ans).textContent = String(q.item[dir.answer.field]);
+        ans.classList.remove('hinting');
+      }
+      ans.classList.add('shown');
+      ans.removeAttribute('aria-hidden');
+    }
     mediaSlots.forEach(function (s) { s.update(q.item, true); });
-    if (!choiceMode) setActions('grade');
+    if (mode === 'self') setActions('grade');
     var answerText = speakText(dir.speakAnswer, dir.answer, q.item);
     announce(answerText);
     if (settings.voice) {
-      CA.speech.speak(answerText, { lang: settings.lang, rate: settings.rate }, function () {
+      say(answerText, function () {
         if (auto && handsFree() && !autoplayPaused && session && session.current === q) {
           later(function () {
             if (session && session.current === q && q.graded === null) { session.skip(); next(); }
@@ -299,6 +326,13 @@
         }
       });
     }
+  }
+
+  // Moves on by itself after a right answer; longer when there's a note
+  // or the answer is read aloud.
+  function moveOnSoon(q, dir, ms) {
+    var note = dir.answer.note && q.item[dir.answer.note];
+    later(advance, ms + (note ? 1500 : 0) + (settings.voice ? 800 : 0));
   }
 
   function grade(ok) {
@@ -309,8 +343,34 @@
     next();
   }
 
-  // Multiple choice: mark the pick, show the answer, then move on by
-  // itself, sooner when right. Tapping again moves on straight away.
+  function advance() {
+    if (!session || !revealed) return;
+    clearTimers();
+    CA.speech.cancel();
+    next();
+  }
+
+  /* ---------- multiple choice ---------- */
+
+  function buildChoices(q, dir) {
+    var box = $('#choices');
+    box.innerHTML = '';
+    box.classList.remove('answered');
+    CA.quiz.choices(deck, q.item, dir.answer.field, 4).forEach(function (v, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn choice' + (v.length > 22 ? ' long' : '');
+      b.setAttribute('data-action', 'choose');
+      b.setAttribute('data-value', v);
+      b.innerHTML = '<kbd class="kbd" aria-hidden="true"></kbd><span class="choice-text"></span>';
+      $('.kbd', b).textContent = i + 1;
+      $('.choice-text', b).textContent = v;
+      box.appendChild(b);
+    });
+  }
+
+  // Mark the pick, show the answer, then move on by itself, sooner when
+  // right. Tapping again moves on straight away.
   function choose(el) {
     if (!session || !session.current) return;
     if (revealed) return advance();
@@ -325,21 +385,116 @@
     });
     session.grade(right);
     reveal(false);
-    announce((right ? 'Right. ' : 'Not quite. ') + speakText(dir.speakAnswer, dir.answer, q.item));
-    var note = dir.answer.note && q.item[dir.answer.note];
-    later(advance, (right ? 900 : 2400) + (note ? 1500 : 0) + (settings.voice ? 800 : 0));
+    announce(t(right ? 'say.right' : 'say.wrong') + ' ' + speakText(dir.speakAnswer, dir.answer, q.item));
+    moveOnSoon(q, dir, right ? 900 : 2400);
   }
 
-  function advance() {
-    if (!session || !revealed) return;
-    clearTimers();
-    CA.speech.cancel();
-    next();
+  /* ---------- typing ---------- */
+
+  var input = $('#type-input');
+
+  function resetTyping(dir) {
+    tries = 0; hints = 0;
+    input.value = '';
+    input.placeholder = t('type.' + dir.answer.field);
+    input.classList.remove('is-right', 'is-wrong', 'shake');
+    setStatus('', '');
+    $('#type-help').hidden = false;
+    $('#btn-next').hidden = true;
+    $('#btn-hint').disabled = false;
   }
+
+  function setStatus(text, kind) {
+    var el = $('#type-status');
+    el.textContent = text;
+    el.className = 'type-status' + (kind ? ' is-' + kind : '');
+  }
+
+  function shake() {
+    input.classList.remove('shake');
+    void input.offsetWidth;
+    input.classList.add('shake');
+  }
+
+  // Each hint shows one more letter of the answer, with blanks for the rest.
+  function hint() {
+    if (!session || !session.current || revealed || mode !== 'type') return;
+    var q = session.current, dir = direction(q);
+    var answer = String(q.item[dir.answer.field]);
+    var letters = answer.replace(/[^\p{L}\p{N}]/gu, '').length;
+    if (hints >= letters - 1) return;
+    hints++;
+    var n = 0;
+    var mask = Array.from(answer).map(function (ch) {
+      return /[\p{L}\p{N}]/u.test(ch) ? (n++ < hints ? ch : '_') : ch;
+    }).join('');
+    var ans = currentAnswer();
+    if (ans) {
+      ans.classList.add('hinting');
+      $('.qt-main', ans).textContent = mask;
+    }
+    $('#btn-hint').disabled = hints >= letters - 1;
+    input.focus({ preventScroll: true });
+  }
+
+  /*
+   * Typed answers. Right first time with at most one hint counts as right.
+   * A second try or more hints still shows "right", but it's recorded as
+   * a miss so it comes back in Review mistakes. Two wrong tries reveal it.
+   */
+  function submitTyping() {
+    if (!session || !session.current) return;
+    if (revealed) return advance();
+    var q = session.current, dir = direction(q), field = dir.answer.field;
+    var res = CA.quiz.check(deck, q.item, field, input.value);
+    if (res.empty) { shake(); return; }
+    if (!res.ok) {
+      tries++;
+      if (tries < 2) {
+        setStatus(t('type.tryAgain'), 'wrong');
+        shake();
+        input.select();
+        return;
+      }
+      input.classList.add('is-wrong');
+      return endTyping(false, false, t('type.wrong'));
+    }
+    input.classList.add('is-right');
+    var clean = tries === 0 && hints <= 1;
+    var msg = !clean ? t(hints > 1 ? 'type.rightHints' : 'type.rightSecond')
+      : res.exact ? t('type.right') : t('type.spelled', { answer: String(q.item[field]) });
+    endTyping(clean, true, msg, res.exact ? 1100 : 2200);
+  }
+
+  function dontKnow() {
+    if (!session || !session.current || revealed || mode !== 'type') return;
+    endTyping(false, false, t('type.dunnoMsg'));
+  }
+
+  // ok: recorded as right. right: the typed answer was correct.
+  function endTyping(ok, right, msg, waitMs) {
+    var q = session.current, dir = direction(q);
+    session.grade(ok);
+    reveal(false);
+    setStatus(msg, right ? 'right' : 'wrong');
+    $('#type-help').hidden = true;
+    $('#btn-next').hidden = false;
+    announce(t(right ? 'say.right' : 'say.wrong') + ' ' + speakText(dir.speakAnswer, dir.answer, q.item));
+    if (ok) moveOnSoon(q, dir, waitMs);
+    input.focus({ preventScroll: true });
+  }
+
+  $('#type-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    submitTyping();
+  });
+
+  /* ---------- end of session ---------- */
 
   function finish() {
     clearTimers();
     releaseWakeLock();
+    input.blur();
     var graded = session.history.filter(function (h) { return h.graded !== null; });
     var right = graded.filter(function (h) { return h.graded; }).length;
     var missed = [];
@@ -347,10 +502,10 @@
       if (!h.graded && missed.indexOf(h.item) === -1) missed.push(h.item);
     });
     $('#done-mode').textContent = sessionInfo.title;
-    $('#done-title').textContent = graded.length ? right + ' / ' + graded.length : 'Done';
-    $('#done-sub').textContent = !graded.length ? 'Nothing was scored this time.'
-      : missed.length ? 'Missed ' + missed.length + (missed.length === 1 ? ' this time.' : ' this time.')
-      : 'Every one right.';
+    $('#done-title').textContent = graded.length ? right + ' / ' + graded.length : t('done.title');
+    $('#done-sub').textContent = !graded.length ? t('done.none')
+      : missed.length ? t('done.missed', { n: missed.length })
+      : t('done.allRight');
     var ul = $('#done-missed');
     ul.innerHTML = '';
     var fwd = deck.directions[0];
@@ -367,7 +522,7 @@
     });
     $('#btn-retry').hidden = !missed.length;
     $('#btn-retry').onclick = function () {
-      startSession({ title: 'Missed from ' + sessionInfo.title, items: missed });
+      startSession({ title: t('session.missedFrom', { title: sessionInfo.title }), items: missed });
     };
     session = null;
     show('done');
@@ -377,6 +532,7 @@
     clearTimers();
     CA.speech.cancel();
     releaseWakeLock();
+    input.blur();
     if (session && session.history.some(function (h) { return h.graded !== null; })) return finish();
     session = null;
     show('home');
@@ -394,7 +550,7 @@
   function updateAutoplayButton() {
     var b = $('#autoplay-btn');
     $('use', b).setAttribute('href', autoplayPaused ? '#i-play' : '#i-pause');
-    b.setAttribute('aria-label', autoplayPaused ? 'Resume hands-free' : 'Pause hands-free');
+    b.setAttribute('aria-label', t(autoplayPaused ? 'quiz.resume' : 'quiz.pause'));
   }
   function toggleAutoplay() {
     autoplayPaused = !autoplayPaused;
@@ -420,48 +576,49 @@
   /* ---------- settings ---------- */
 
   function renderSettings() {
-    $$('[data-setting]').forEach(function (input) {
-      var k = input.getAttribute('data-setting');
-      if (input.type === 'checkbox') input.checked = !!settings[k];
-      else input.value = settings[k];
+    $$('[data-setting]').forEach(function (el) {
+      var k = el.getAttribute('data-setting');
+      if (el.type === 'checkbox') el.checked = !!settings[k];
+      else el.value = settings[k];
     });
+    segmented($('#language-picker'), [{ id: 'en', label: 'English', lang: 'en' }, { id: 'es', label: 'Español', lang: 'es' }],
+      CA.i18n.lang, function (v) { setLanguage(v, true); });
+    segmented($('#answer-picker'), ['type', 'choices', 'self'].map(function (m) { return { id: m, label: t('answer.' + m) }; }),
+      settings.answer, function (v) { store.setSetting('answer', v); });
     segmented($('#length-picker'), CA.config.reviewLengths.map(function (n) { return { id: n, label: String(n) }; }),
       settings.reviewLength, function (v) { store.setSetting('reviewLength', v); });
-    segmented($('#answer-picker'), [{ id: 'choices', label: '4 choices' }, { id: 'self', label: 'Self-check' }],
-      settings.answerMode, function (v) { store.setSetting('answerMode', v); });
     if (!CA.speech.supported) {
       $('[data-setting="voice"]').disabled = true;
-      $('#voice-desc').textContent = 'This browser has no speech support.';
+      $('#voice-desc').textContent = t('settings.noSpeech');
     }
     var hasReverse = deck.directions.some(function (d) { return d.mediaOnReveal; });
     $('[data-setting="mediaBeforeReveal"]').closest('.toggle-row').hidden = !hasReverse;
     reflectSettings();
     var sum = store.deckSummary(deck.id);
     $('#progress-summary').textContent = sum.right + sum.wrong
-      ? sum.seen + ' of ' + deck.items.length + ' seen. ' + sum.right + ' right, ' + sum.wrong + ' missed in total.'
-      : 'No answers recorded yet.';
+      ? t('progress.summary', { seen: sum.seen, total: deck.items.length, right: sum.right, wrong: sum.wrong })
+      : t('progress.none');
   }
 
   function reflectSettings() {
     var html = document.documentElement;
     html.classList.toggle('voice-on', !!settings.voice);
     html.classList.toggle('autoplay-on', !!(settings.voice && settings.autoplay));
-    $('#rate-out').textContent = Number(settings.rate).toFixed(1) + '×';
+    $('#rate-out').textContent = Number(settings.rate).toLocaleString(CA.i18n.lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '×';
     $('#think-out').textContent = settings.thinkSeconds + ' s';
   }
 
-  $$('[data-setting]').forEach(function (input) {
-    input.addEventListener(input.type === 'range' ? 'input' : 'change', function () {
-      var k = input.getAttribute('data-setting');
-      var v = input.type === 'checkbox' ? input.checked : Number(input.value);
+  $$('[data-setting]').forEach(function (el) {
+    el.addEventListener(el.type === 'range' ? 'input' : 'change', function () {
+      var k = el.getAttribute('data-setting');
+      var v = el.type === 'checkbox' ? el.checked : Number(el.value);
       store.setSetting(k, v);
       reflectSettings();
     });
   });
 
   function message(text) {
-    var el = $('#settings-msg');
-    el.textContent = text;
+    $('#settings-msg').textContent = text;
   }
 
   function exportProgress() {
@@ -474,7 +631,7 @@
     a.click();
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
-    message('Backup saved.');
+    message(t('msg.saved'));
   }
 
   $('#import-file').addEventListener('change', function (e) {
@@ -483,10 +640,11 @@
     file.text().then(function (txt) {
       store.importJSON(txt);
       settings = store.getSettings();
+      setLanguage(settings.language || CA.i18n.lang, false);
       renderSettings();
-      message('Progress imported.');
+      message(t('msg.imported'));
     }).catch(function (err) {
-      message('Could not import: ' + err.message);
+      message(t('msg.importFailed', { error: err.message }));
     });
     e.target.value = '';
   });
@@ -496,10 +654,10 @@
     function doReset() {
       store.reset();
       renderSettings();
-      message('Progress reset.');
+      message(t('msg.reset'));
     }
     if (typeof dlg.showModal !== 'function') {
-      if (root.confirm('Reset all progress on this device?')) doReset();
+      if (root.confirm(t('reset.confirm'))) doReset();
       return;
     }
     dlg.returnValue = '';
@@ -510,37 +668,62 @@
     });
   }
 
+  /* ---------- on-screen keyboard ---------- */
+
+  // While typing on a phone, size the quiz to the part of the screen the
+  // keyboard leaves, so the map, the question and the box all stay in view.
+  var vv = root.visualViewport, tallest = 0;
+  function fitViewport() {
+    if (!vv || vv.scale > 1.05) return;
+    var html = document.documentElement;
+    tallest = Math.max(tallest, vv.height);
+    var typing = document.activeElement === input;
+    var kb = typing && vv.height < tallest * 0.8;
+    html.style.setProperty('--app-h', Math.round(vv.height) + 'px');
+    html.classList.toggle('kb-open', kb);
+    if (kb && current === 'quiz') root.scrollTo(0, 0);
+  }
+  if (vv) {
+    vv.addEventListener('resize', fitViewport);
+    root.addEventListener('orientationchange', function () { tallest = 0; });
+    input.addEventListener('focus', function () { setTimeout(fitViewport, 300); });
+    input.addEventListener('blur', function () { setTimeout(fitViewport, 300); });
+    fitViewport();
+  }
+
   /* ---------- events ---------- */
 
   var actions = {
     'home': function () { show('home'); },
+    'toggle-lang': function () { setLanguage(CA.i18n.lang === 'es' ? 'en' : 'es', true); },
     'start-review': function () {
-      startSession({ title: 'Review', items: dueItems().slice(0, settings.reviewLength) });
+      startSession({ title: t('session.review'), items: dueItems().slice(0, settings.reviewLength) });
     },
     'start-random': function () {
-      startSession({ title: 'Random', items: deck.items });
+      startSession({ title: t('session.random'), items: deck.items });
     },
     'open-mixed': function () { renderMixed(); show('mixed'); },
     'start-mixed': function () {
-      startSession({ title: 'Mixed', items: mixedPool() });
+      startSession({ title: t('session.mixed'), items: mixedPool() });
     },
     'open-settings': function () { renderSettings(); message(''); show('settings'); },
     'reveal': function () { reveal(false); },
     'choose': function (el) { choose(el); },
+    'hint': hint,
+    'dunno': dontKnow,
+    'next': advance,
     'got-it': function () { grade(true); },
     'missed': function () { grade(false); },
     'quit': quit,
     'speak-again': function () {
       if (!session || !session.current) return;
       var q = session.current, dir = direction(q);
-      var t = speakText(dir.speakPrompt, dir.prompt, q.item);
-      if (revealed) t += '. ' + speakText(dir.speakAnswer, dir.answer, q.item);
-      CA.speech.speak(t, { lang: settings.lang, rate: settings.rate });
+      var text = speakText(dir.speakPrompt, dir.prompt, q.item);
+      if (revealed) text += '. ' + speakText(dir.speakAnswer, dir.answer, q.item);
+      say(text);
     },
     'toggle-autoplay': toggleAutoplay,
-    'test-voice': function () {
-      CA.speech.speak('Bern is the capital of Switzerland.', { lang: settings.lang, rate: settings.rate });
-    },
+    'test-voice': function () { say(t('settings.testPhrase')); },
     'export': exportProgress,
     'import': function () { $('#import-file').click(); },
     'reset': confirmReset
@@ -556,7 +739,12 @@
   document.addEventListener('keydown', function (e) {
     if (current !== 'quiz' || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'Escape') { quit(); return; }
-    if (choiceMode) {
+    if (mode === 'type') {
+      // Enter in the box submits the form; elsewhere it moves on.
+      if (revealed && e.key === 'Enter' && e.target !== input) { e.preventDefault(); advance(); }
+      return;
+    }
+    if (mode === 'choices') {
       var pick = $$('#choices .choice')[Number(e.key) - 1];
       if (!revealed && pick) { e.preventDefault(); choose(pick); }
       else if (revealed && (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight')) { e.preventDefault(); advance(); }
@@ -573,7 +761,7 @@
 
   document.body.setAttribute('data-screen', 'home');
   reflectSettings();
-  renderHome();
+  setLanguage(settings.language || CA.i18n.preferred(), false);
 
   // Fetch the map outlines once the home screen is up, so the first
   // question doesn't wait for them.

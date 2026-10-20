@@ -19,7 +19,7 @@
       var el = document.createElement('div');
       el.className = 'flag';
       el.setAttribute('role', 'img');
-      el.setAttribute('aria-label', 'Flag' + (label ? ' of ' + label : ''));
+      el.setAttribute('aria-label', label ? CA.i18n.t('flag.of', { name: label }) : CA.i18n.t('flag'));
       el.textContent = emoji(code);
       return el;
     }

@@ -133,11 +133,12 @@
     var wrap = document.createElement('div');
     wrap.className = 'map';
     wrap.innerHTML =
-      '<canvas class="map-canvas" role="img" aria-label="World map"></canvas>' +
+      '<canvas class="map-canvas" role="img"></canvas>' +
       '<div class="map-pin" aria-hidden="true"><span class="pin-ring"></span><span class="pin-dot"></span></div>' +
       '<div class="map-label" aria-hidden="true"></div>';
     container.appendChild(wrap);
     var canvas = wrap.querySelector('canvas');
+    canvas.setAttribute('aria-label', CA.i18n.t('map.label'));
     var ctx = canvas.getContext('2d');
     var pin = wrap.querySelector('.map-pin');
     var label = wrap.querySelector('.map-label');
@@ -338,7 +339,7 @@
       ready();
     }, function () {
       wrap.classList.add('failed');
-      label.textContent = 'Map unavailable';
+      label.textContent = CA.i18n.t('map.unavailable');
     });
 
     return { el: wrap, show: show, clear: clear };

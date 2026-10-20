@@ -22,7 +22,8 @@
 
   var DEFAULT_SETTINGS = {
     direction: 'forward',     // forward | reverse | mixed
-    answerMode: 'choices',    // choices (pick from 4) | self (reveal, then Got it / Missed)
+    answer: 'type',           // type | choices (pick from 4) | self (reveal, then Got it / Missed)
+    language: null,           // en | es; null = the browser's language
     mediaBeforeReveal: false,
     reviewLength: 20,
     voice: false,
@@ -79,6 +80,12 @@
     }
     data.version = VERSION;
     data.settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
+    // `answerMode` (choices | self) became `answer`, with typing as the
+    // new default; only an explicit self-check choice carries over.
+    if ('answerMode' in data.settings) {
+      if (data.settings.answerMode === 'self') data.settings.answer = 'self';
+      delete data.settings.answerMode;
+    }
     data.decks = data.decks || {};
     return data;
   }

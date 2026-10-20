@@ -20,7 +20,7 @@
     if (spec.sub && item[spec.sub]) {
       var sub = document.createElement('p');
       sub.className = 'qt-sub';
-      sub.textContent = 'also ' + item[spec.sub];
+      sub.textContent = CA.i18n.t('also', { name: item[spec.sub] });
       el.appendChild(sub);
     }
     if (spec.note && item[spec.note]) {

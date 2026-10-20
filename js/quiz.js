@@ -102,5 +102,82 @@
     };
   }
 
-  CA.quiz = { shuffle: shuffle, pool: pool, due: due, choices: choices, createSession: createSession };
+  /* ---------- typed answers ---------- */
+
+  // Lower case, no accents or punctuation, "St" read as "Saint", and a
+  // leading article dropped, so "el cairo", "Cairo" and "CAIRO" all match.
+  function normalize(s) {
+    return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+      .replace(/[’'`ʻ.]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim()
+      .replace(/\bst\b/g, 'saint').replace(/^(the|el|la|los|las) /, '');
+  }
+
+  // Every normalised form of the accepted answers, including the part
+  // before a comma ("Washington, D.C.") or without brackets.
+  function forms(answers) {
+    var out = [];
+    answers.forEach(function (a) {
+      [a, a.split(',')[0], a.replace(/\(.*?\)/g, '')].forEach(function (v) {
+        v = normalize(v);
+        if (v && out.indexOf(v) === -1) out.push(v);
+      });
+    });
+    return out;
+  }
+
+  function accepted(deck, item, field) {
+    return deck.accept ? deck.accept(item, field) : [String(item[field])];
+  }
+
+  // normalised answer -> ids of the items it belongs to, per field.
+  var owners = {};
+  function ownersOf(deck, field) {
+    var key = deck.id + ':' + field;
+    if (!owners[key]) {
+      var map = owners[key] = {};
+      deck.items.forEach(function (it) {
+        forms(accepted(deck, it, field)).forEach(function (f) { (map[f] = map[f] || []).push(it.id); });
+      });
+    }
+    return owners[key];
+  }
+
+  // Edit distance where swapping two neighbouring letters counts as one.
+  function distance(a, b) {
+    var older = null, prev = [], cur, i, j;
+    for (j = 0; j <= b.length; j++) prev[j] = j;
+    for (i = 1; i <= a.length; i++) {
+      cur = [i];
+      for (j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        if (older && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], older[j - 2] + 1);
+      }
+      older = prev; prev = cur;
+    }
+    return prev[b.length];
+  }
+
+  // Typos allowed: none up to 4 letters, one up to 7, then two.
+  function tolerance(n) { return n <= 4 ? 0 : n <= 7 ? 1 : 2; }
+
+  /*
+   * check(deck, item, field, input) -> { ok, exact, empty }
+   * Right if the input matches any accepted answer, in any language, give
+   * or take a typo. Typing another item's answer exactly is always wrong,
+   * so "Niger" isn't taken as a typo for "Nigeria".
+   */
+  function check(deck, item, field, input) {
+    var x = normalize(input);
+    if (!x) return { ok: false, empty: true };
+    var targets = forms(accepted(deck, item, field));
+    if (targets.indexOf(x) >= 0) return { ok: true, exact: true };
+    var mine = ownersOf(deck, field)[x];
+    if (mine && mine.indexOf(item.id) === -1) return { ok: false };
+    for (var i = 0; i < targets.length; i++) {
+      if (distance(x, targets[i]) <= tolerance(targets[i].length)) return { ok: true, exact: false };
+    }
+    return { ok: false };
+  }
+
+  CA.quiz = { shuffle: shuffle, pool: pool, due: due, choices: choices, check: check, normalize: normalize, createSession: createSession };
 })(window);

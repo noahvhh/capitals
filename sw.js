@@ -5,11 +5,11 @@
  * offline, or when the network takes more than a few seconds.
  * Bump VERSION when files change.
  */
-var VERSION = 'capitals-v4';
+var VERSION = 'capitals-v5';
 var FILES = [
   './', 'index.html', 'css/styles.css',
-  'data/countries.js', 'data/map.js',
-  'js/storage.js', 'js/quiz.js', 'js/decks/capitals.js', 'js/config.js', 'js/speech.js',
+  'data/countries.js', 'data/countries-es.js', 'data/map.js',
+  'js/i18n.js', 'js/storage.js', 'js/quiz.js', 'js/decks/capitals.js', 'js/config.js', 'js/speech.js',
   'js/flag.js', 'js/map.js', 'js/render.js', 'js/ui.js',
   'fonts/instrument-serif-latin-400-normal.woff2', 'fonts/instrument-serif-latin-ext-400-normal.woff2',
   'fonts/twemoji-country-flags.woff2',
@@ -47,10 +47,16 @@ function fromCache(req) {
 self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  var net = fetch(req).then(function (res) {
+  // no-cache: always check with the server (a 304 when nothing changed),
+  // so the browser's own HTTP cache can't hold back an update either.
+  var net = fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(function (res) {
     if (res.ok) {
       var copy = res.clone();
       caches.open(VERSION).then(function (c) { return c.put(req, copy); });
+    }
+    // A page load can't be answered with a redirected response.
+    if (res.redirected && req.mode === 'navigate') {
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers });
     }
     return res;
   });

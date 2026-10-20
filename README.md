@@ -29,7 +29,9 @@ The service worker fetches from the network first, so a new deploy shows up on t
 index.html             screens and SVG icon sprite
 css/styles.css         all styling (tokens at the top)
 data/countries.js      195 countries: iso2, name, capital, continent, hard, note, aka
+data/countries-es.js   Spanish names, notes and accepted spellings, by ISO code
 data/map.js            generated world outlines, loaded after the home screen paints
+js/i18n.js             CA.i18n: interface text in English and Spanish
 js/storage.js          CA.store: settings + progress, versioned localStorage, export/import/reset
 js/quiz.js             CA.quiz: pools, the review list, sessions (deck-agnostic)
 js/decks/capitals.js   the capitals deck definition
@@ -48,9 +50,12 @@ tools/build-map.mjs    regenerates data/map.js (optional, needs Node)
 - **Review mistakes** asks only countries you've missed, worst first, up to the review length in Settings, shuffled. Each country has a miss score: a miss adds 1 and a right answer halves it, and it stays on the review list while the score is 0.3 or more. So one miss takes two right answers to clear, two misses take three. The button shows how many are waiting and is off when there are none.
 - **By continent** offers Easy, Hard and All, using the `hard` flag. **Mixed** quizzes any ticked continents. **Random** is every country, shuffled.
 - **Ask for the** capital, the country, or both (chosen per question). When asking for the country, the flag and map stay hidden until you answer, since they'd give it away; a setting turns that off.
-- **Answer by** (Settings) picking from 4 choices (the default) or with self-check (Reveal, then Got it or Missed). The wrong choices come from the same continent. After a pick the right one lights up and the next question comes by itself, sooner when you were right; tap a choice again to move on straight away.
-- **Voice** (Settings) reads prompts and answers in en-GB at an adjustable speed. **Hands-free** reveals and moves on by itself and keeps the screen awake, so it always uses self-check. iOS stops web pages when the phone is locked, so hands-free needs the screen on (it can be dimmed); no web app can keep talking with the screen fully off.
-- **Keyboard**: with choices, 1–4 picks and Space, Enter or → moves on. With self-check, Space reveals, → or Enter = Got it, ← = Missed. Esc ends the session.
+- **Answer by** (Settings) typing (the default), picking from 4 choices, or self-check (Reveal, then Got it or Missed). Typing makes you recall the name instead of recognising it.
+  - **Typing** ignores case, accents and punctuation, allows a typo or two in longer names (a swapped pair of letters counts as one), and accepts the English and Spanish names plus the alternatives in the data, in either language. Typing a different country's answer exactly is always wrong, so "Niger" is never taken as a typo for "Nigeria". **Hint** shows one more letter each time, with blanks for the rest. Right first time with at most one hint counts as right; a second try or more hints still shows as right but is recorded as a miss, so it comes back in Review mistakes. Two wrong tries or **Don't know** show the answer. On a phone the quiz shrinks to fit above the keyboard.
+  - **Choices**: the wrong ones come from the same continent. After a pick the right one lights up and the next question comes by itself, sooner when you were right; tap a choice again to move on straight away.
+- **Language**: English or Spanish, from the button on the home screen or in Settings. It starts in the browser's language. Country and capital names, notes, the interface and the voice all switch; progress is shared.
+- **Voice** (Settings) reads prompts and answers (en-GB, or es-ES in Spanish) at an adjustable speed. **Hands-free** reveals and moves on by itself and keeps the screen awake, so it always uses self-check. iOS stops web pages when the phone is locked, so hands-free needs the screen on (it can be dimmed); no web app can keep talking with the screen fully off.
+- **Keyboard**: typing, Enter checks and Enter again moves on. With choices, 1–4 picks and Space, Enter or → moves on. With self-check, Space reveals, → or Enter = Got it, ← = Missed. Esc ends the session.
 
 ## Progress and storage
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#050505">
   <meta name="color-scheme" content="dark">
   <meta name="description" content="Learn the world's capitals with flags and maps.">
@@ -30,43 +30,48 @@
     <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4M4 16l8 4 8-4"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5S9.7 5.9 12 3.5z"/></symbol>
   </svg>
 
   <main id="app">
     <!-- Home -->
     <section class="screen" id="screen-home" data-screen="home" aria-labelledby="home-title">
       <header class="home-head">
-        <h1 id="home-title" class="display">Capitals</h1>
+        <button class="btn btn-ghost btn-sm lang-btn" data-action="toggle-lang" lang="es">
+          <svg class="icon"><use href="#i-globe"/></svg><span data-i18n="lang.switch">Español</span>
+        </button>
+        <h1 id="home-title" class="display" data-i18n="app.title">Capitals</h1>
         <p class="home-stats" id="home-stats"></p>
       </header>
 
       <div class="home-body">
         <div class="field">
-          <span class="field-label" id="dir-label">Ask for the</span>
+          <span class="field-label" id="dir-label" data-i18n="home.askFor">Ask for the</span>
           <div class="segmented" role="radiogroup" aria-labelledby="dir-label" id="direction-picker"></div>
         </div>
 
         <button class="btn btn-primary btn-block btn-lg" data-action="start-review" id="btn-review">
           <svg class="icon"><use href="#i-target"/></svg>
-          <span>Review mistakes</span>
+          <span data-i18n="review.button">Review mistakes</span>
           <span class="count" id="review-count"></span>
         </button>
         <p class="hint" id="review-hint"></p>
 
-        <h2 class="section-title">By continent</h2>
+        <h2 class="section-title" data-i18n="home.byContinent">By continent</h2>
         <ul class="continent-list" id="continent-list"></ul>
 
         <div class="row-2">
           <button class="btn btn-block" data-action="open-mixed">
-            <svg class="icon"><use href="#i-layers"/></svg><span>Mixed</span>
+            <svg class="icon"><use href="#i-layers"/></svg><span data-i18n="home.mixed">Mixed</span>
           </button>
           <button class="btn btn-block" data-action="start-random">
-            <svg class="icon"><use href="#i-shuffle"/></svg><span>Random</span>
+            <svg class="icon"><use href="#i-shuffle"/></svg><span data-i18n="home.random">Random</span>
           </button>
         </div>
 
         <button class="btn btn-ghost btn-block" data-action="open-settings">
-          <svg class="icon"><use href="#i-settings"/></svg><span>Settings and progress</span>
+          <svg class="icon"><use href="#i-settings"/></svg><span data-i18n="home.settings">Settings and progress</span>
         </button>
       </div>
     </section>
@@ -74,48 +79,60 @@
     <!-- Mixed picker -->
     <section class="screen" id="screen-mixed" data-screen="mixed" aria-labelledby="mixed-title" hidden>
       <div class="topbar">
-        <button class="icon-btn" data-action="home" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button>
-        <h2 id="mixed-title" class="topbar-title display">Mixed</h2>
+        <button class="icon-btn" data-action="home" data-i18n-aria="nav.back" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2 id="mixed-title" class="topbar-title display" data-i18n="home.mixed">Mixed</h2>
         <span class="icon-btn-spacer"></span>
       </div>
       <div class="page">
-        <p class="hint">Tick any combination.</p>
+        <p class="hint" data-i18n="mixed.hint">Tick any combination.</p>
         <ul class="check-list" id="mixed-list"></ul>
         <div class="field">
-          <span class="field-label" id="mixed-diff-label">Capitals</span>
+          <span class="field-label" id="mixed-diff-label" data-i18n="mixed.difficulty">Difficulty</span>
           <div class="segmented" role="radiogroup" aria-labelledby="mixed-diff-label" id="mixed-diff"></div>
         </div>
-        <button class="btn btn-primary btn-block btn-lg" data-action="start-mixed" id="mixed-start">Start</button>
+        <button class="btn btn-primary btn-block btn-lg" data-action="start-mixed" id="mixed-start"></button>
       </div>
     </section>
 
     <!-- Quiz -->
     <section class="screen screen-quiz" id="screen-quiz" data-screen="quiz" aria-label="Quiz" hidden>
       <div class="topbar">
-        <button class="icon-btn" data-action="quit" aria-label="End session"><svg class="icon"><use href="#i-close"/></svg></button>
+        <button class="icon-btn" data-action="quit" data-i18n-aria="quiz.end" aria-label="End session"><svg class="icon"><use href="#i-close"/></svg></button>
         <span class="counter" id="quiz-counter" aria-live="polite"></span>
         <span class="topbar-right">
-          <button class="icon-btn voice-only" data-action="speak-again" aria-label="Read aloud again"><svg class="icon"><use href="#i-speaker"/></svg></button>
+          <button class="icon-btn voice-only" data-action="speak-again" data-i18n-aria="quiz.speak" aria-label="Read aloud again"><svg class="icon"><use href="#i-speaker"/></svg></button>
           <button class="icon-btn voice-only autoplay-only" data-action="toggle-autoplay" aria-label="Pause hands-free" id="autoplay-btn"><svg class="icon"><use href="#i-pause"/></svg></button>
         </span>
       </div>
-      <div class="progress" role="progressbar" aria-label="Session progress" aria-valuemin="0" id="quiz-progress"><span></span></div>
+      <div class="progress" role="progressbar" data-i18n-aria="quiz.progress" aria-label="Session progress" aria-valuemin="0" id="quiz-progress"><span></span></div>
 
       <div class="quiz-stage">
         <article class="card-q" id="question"></article>
       </div>
 
       <div class="actions" id="quiz-actions">
-        <button class="btn btn-primary btn-block btn-lg" data-action="reveal" id="btn-reveal"><span>Reveal</span><kbd class="kbd">Space</kbd></button>
+        <button class="btn btn-primary btn-block btn-lg" data-action="reveal" id="btn-reveal"><span data-i18n="quiz.reveal">Reveal</span><kbd class="kbd" data-i18n="key.space">Space</kbd></button>
         <div class="row-2 grade" hidden id="grade-row">
           <button class="btn btn-destructive btn-lg" data-action="missed">
-            <svg class="icon"><use href="#i-close"/></svg><span>Missed</span><kbd class="kbd" aria-hidden="true">←</kbd>
+            <svg class="icon"><use href="#i-close"/></svg><span data-i18n="quiz.missed">Missed</span><kbd class="kbd" aria-hidden="true">←</kbd>
           </button>
           <button class="btn btn-primary btn-lg" data-action="got-it">
-            <svg class="icon"><use href="#i-check"/></svg><span>Got it</span><kbd class="kbd" aria-hidden="true">→</kbd>
+            <svg class="icon"><use href="#i-check"/></svg><span data-i18n="quiz.gotIt">Got it</span><kbd class="kbd" aria-hidden="true">→</kbd>
           </button>
         </div>
-        <div class="choices" hidden id="choices" role="group" aria-label="Answers"></div>
+        <div class="choices" hidden id="choices" role="group" data-i18n-aria="quiz.answers" aria-label="Answers"></div>
+        <form class="type-form" hidden id="type-form" novalidate>
+          <p class="type-status" id="type-status" aria-live="polite"></p>
+          <div class="type-field">
+            <input class="type-input" id="type-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="go">
+            <button class="type-go" type="submit" data-i18n-aria="type.check" aria-label="Check"><svg class="icon"><use href="#i-next"/></svg></button>
+          </div>
+          <div class="row-2" id="type-help">
+            <button class="btn btn-lg" type="button" data-action="hint" id="btn-hint"><svg class="icon"><use href="#i-bulb"/></svg><span data-i18n="type.hint">Hint</span></button>
+            <button class="btn btn-lg" type="button" data-action="dunno"><span data-i18n="type.dunno">Don't know</span></button>
+          </div>
+          <button class="btn btn-primary btn-block btn-lg" type="button" data-action="next" id="btn-next" hidden><span data-i18n="type.next">Next</span><kbd class="kbd" data-i18n="key.enter">Enter</kbd></button>
+        </form>
       </div>
     </section>
 
@@ -126,65 +143,70 @@
         <p class="done-mode" id="done-mode"></p>
         <p class="hint" id="done-sub"></p>
         <ul class="missed-list" id="done-missed"></ul>
-        <button class="btn btn-primary btn-block btn-lg" data-action="retry-missed" id="btn-retry">Go over the missed ones</button>
-        <button class="btn btn-block btn-lg" data-action="home">Home</button>
+        <button class="btn btn-primary btn-block btn-lg" data-action="retry-missed" id="btn-retry" data-i18n="done.retry">Go over the missed ones</button>
+        <button class="btn btn-block btn-lg" data-action="home" data-i18n="done.home">Home</button>
       </div>
     </section>
 
     <!-- Settings -->
     <section class="screen" id="screen-settings" data-screen="settings" aria-labelledby="settings-title" hidden>
       <div class="topbar">
-        <button class="icon-btn" data-action="home" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button>
-        <h2 id="settings-title" class="topbar-title display">Settings</h2>
+        <button class="icon-btn" data-action="home" data-i18n-aria="nav.back" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2 id="settings-title" class="topbar-title display" data-i18n="settings.title">Settings</h2>
         <span class="icon-btn-spacer"></span>
       </div>
       <div class="page">
-        <h3 class="section-title">Quiz</h3>
         <div class="field">
-          <span class="field-label" id="answer-label">Answer by</span>
+          <span class="field-label" id="language-label" data-i18n="settings.language">Language</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="language-label" id="language-picker"></div>
+        </div>
+
+        <h3 class="section-title" data-i18n="settings.quiz">Quiz</h3>
+        <div class="field">
+          <span class="field-label" id="answer-label" data-i18n="settings.answerBy">Answer by</span>
           <div class="segmented" role="radiogroup" aria-labelledby="answer-label" id="answer-picker"></div>
         </div>
         <label class="toggle-row">
-          <span><span class="toggle-title">Show flag and map before answering</span>
-          <span class="toggle-desc">When asking capital → country, the flag and map give the answer away, so they are hidden until you answer.</span></span>
+          <span><span class="toggle-title" data-i18n="settings.media">Show flag and map before answering</span>
+          <span class="toggle-desc" data-i18n="settings.mediaDesc">When asking capital → country, the flag and map give the answer away, so they are hidden until you answer.</span></span>
           <input type="checkbox" class="switch" data-setting="mediaBeforeReveal">
         </label>
         <div class="field">
-          <span class="field-label" id="len-label">Review length</span>
+          <span class="field-label" id="len-label" data-i18n="settings.reviewLength">Review length</span>
           <div class="segmented" role="radiogroup" aria-labelledby="len-label" id="length-picker"></div>
         </div>
 
-        <h3 class="section-title">Voice</h3>
+        <h3 class="section-title" data-i18n="settings.voice">Voice</h3>
         <label class="toggle-row">
-          <span><span class="toggle-title">Read aloud</span>
-          <span class="toggle-desc" id="voice-desc">Reads each prompt, and the answer when revealed.</span></span>
+          <span><span class="toggle-title" data-i18n="settings.readAloud">Read aloud</span>
+          <span class="toggle-desc" id="voice-desc" data-i18n="settings.readAloudDesc">Reads each prompt, and the answer when revealed.</span></span>
           <input type="checkbox" class="switch" data-setting="voice">
         </label>
         <div class="voice-settings">
           <label class="range-row">
-            <span class="toggle-title">Speed <output id="rate-out"></output></span>
+            <span class="toggle-title"><span data-i18n="settings.speed">Speed</span> <output id="rate-out"></output></span>
             <input type="range" min="0.6" max="1.4" step="0.1" data-setting="rate">
           </label>
           <label class="toggle-row">
-            <span><span class="toggle-title">Hands-free</span>
-            <span class="toggle-desc">Reveals and moves on by itself, keeping the screen awake. Uses self-check, and answers aren't scored unless you tap.</span></span>
+            <span><span class="toggle-title" data-i18n="settings.handsFree">Hands-free</span>
+            <span class="toggle-desc" data-i18n="settings.handsFreeDesc">Reveals and moves on by itself, keeping the screen awake. Uses self-check, and answers aren't scored unless you tap.</span></span>
             <input type="checkbox" class="switch" data-setting="autoplay">
           </label>
           <label class="range-row autoplay-row">
-            <span class="toggle-title">Thinking time <output id="think-out"></output></span>
+            <span class="toggle-title"><span data-i18n="settings.thinking">Thinking time</span> <output id="think-out"></output></span>
             <input type="range" min="2" max="12" step="1" data-setting="thinkSeconds">
           </label>
-          <button class="btn btn-block" data-action="test-voice"><svg class="icon"><use href="#i-speaker"/></svg><span>Test voice</span></button>
+          <button class="btn btn-block" data-action="test-voice"><svg class="icon"><use href="#i-speaker"/></svg><span data-i18n="settings.testVoice">Test voice</span></button>
         </div>
 
-        <h3 class="section-title">Progress</h3>
+        <h3 class="section-title" data-i18n="settings.progress">Progress</h3>
         <p class="hint" id="progress-summary"></p>
         <div class="row-2">
-          <button class="btn btn-block" data-action="export">Export</button>
-          <button class="btn btn-block" data-action="import">Import</button>
+          <button class="btn btn-block" data-action="export" data-i18n="settings.export">Export</button>
+          <button class="btn btn-block" data-action="import" data-i18n="settings.import">Import</button>
         </div>
         <input type="file" id="import-file" accept="application/json,.json" hidden>
-        <button class="btn btn-destructive btn-block" data-action="reset">Reset progress</button>
+        <button class="btn btn-destructive btn-block" data-action="reset" data-i18n="settings.reset">Reset progress</button>
         <p class="hint small" id="settings-msg" role="status" aria-live="polite"></p>
       </div>
     </section>
@@ -192,11 +214,11 @@
 
   <dialog id="confirm" class="dialog" aria-labelledby="confirm-title">
     <form method="dialog">
-      <h2 id="confirm-title" class="display">Reset progress?</h2>
-      <p class="hint">This clears every right and wrong answer on this device. Export a backup first if you might want it back.</p>
+      <h2 id="confirm-title" class="display" data-i18n="reset.title">Reset progress?</h2>
+      <p class="hint" data-i18n="reset.desc">This clears every right and wrong answer on this device. Export a backup first if you might want it back.</p>
       <div class="row-2">
-        <button class="btn btn-lg" value="cancel">Cancel</button>
-        <button class="btn btn-destructive btn-lg" value="ok">Reset</button>
+        <button class="btn btn-lg" value="cancel" data-i18n="reset.cancel">Cancel</button>
+        <button class="btn btn-destructive btn-lg" value="ok" data-i18n="reset.ok">Reset</button>
       </div>
     </form>
   </dialog>
@@ -204,6 +226,8 @@
   <div class="sr-only" aria-live="assertive" id="sr-announce"></div>
 
   <script src="data/countries.js" defer></script>
+  <script src="data/countries-es.js" defer></script>
+  <script src="js/i18n.js" defer></script>
   <script src="js/storage.js" defer></script>
   <script src="js/quiz.js" defer></script>
   <script src="js/decks/capitals.js" defer></script>
