@@ -65,7 +65,21 @@ async function read(path) {
   const text = await new Response(res.stream).text();
   let parsed = null;
   try { parsed = JSON.parse(text); } catch (e) { /* treat as empty */ }
-  return { data: clean(parsed), etag: res.blob.etag };
+  // Once a file is big enough to be served compressed, get() reports a
+  // weak ETag (W/"…"), but put({ ifMatch }) only accepts the strong form
+  // ("…") and otherwise fails every time. Same hash, so drop the prefix.
+  const etag = res.blob.etag ? String(res.blob.etag).replace(/^W\//, '') : null;
+  return { data: clean(parsed), etag };
+}
+
+function save(path, data, etag) {
+  return put(path, JSON.stringify(data), {
+    access: 'private',
+    allowOverwrite: true,
+    contentType: 'application/json',
+    cacheControlMaxAge: 60,
+    ...(etag ? { ifMatch: etag } : {})
+  });
 }
 
 function params(code, deck) {
@@ -94,22 +108,21 @@ export async function POST(request) {
 
   // Read, merge and write back only if nothing changed in between; if the
   // other device wrote first, read again and merge with that.
+  let merged = incoming;
   for (let attempt = 0; attempt < 3; attempt++) {
     const stored = await read(path);
-    const merged = merge(stored.data, incoming);
+    merged = merge(stored.data, incoming);
     if (JSON.stringify(merged) === JSON.stringify(stored.data)) return json({ data: merged });
     try {
-      await put(path, JSON.stringify(merged), {
-        access: 'private',
-        allowOverwrite: true,
-        contentType: 'application/json',
-        cacheControlMaxAge: 60,
-        ...(stored.etag ? { ifMatch: stored.etag } : {})
-      });
+      await save(path, merged, stored.etag);
       return json({ data: merged });
     } catch (err) {
       if (!(err instanceof BlobPreconditionFailedError)) throw err;
     }
   }
-  return json({ error: 'busy, try again' }, 409);
+  // Still clashing after three tries: save the latest merge anyway rather
+  // than refuse. At worst a device's answers from the last few seconds
+  // are left for its next sync, which sends everything again.
+  await save(path, merged, null);
+  return json({ data: merged });
 }

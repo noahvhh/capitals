@@ -27,6 +27,7 @@
 
   var deckId = null, timer = null, pending = false, inflight = null, again = false;
   var dirty = false;      // answers given here that haven't been sent yet
+  var failures = 0;       // in a row, for retrying with growing gaps
   var lastTry = 0;
   var status = { state: 'idle', at: 0 };
   var listeners = [];
@@ -91,11 +92,15 @@
       // Merge rather than replace: answers given while this was in
       // flight are kept.
       if (code() === c) CA.store.mergeDeckData(deckId, body.data);
+      failures = 0;
       setStatus('ok');
       return true;
     }).catch(function () {
       dirty = dirty || sentDirty;
       setStatus('error');
+      // Retry by itself after 30 s, then 1, 2, 4… minutes, at most 10.
+      failures++;
+      schedule(Math.min(30000 * Math.pow(2, failures - 1), 600000));
       return false;
     }).then(function (ok) {
       inflight = null;
