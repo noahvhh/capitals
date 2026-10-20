@@ -5,11 +5,11 @@
  * offline, or when the network takes more than a few seconds.
  * Bump VERSION when files change.
  */
-var VERSION = 'capitals-v5';
+var VERSION = 'capitals-v6';
 var FILES = [
   './', 'index.html', 'css/styles.css',
   'data/countries.js', 'data/countries-es.js', 'data/map.js',
-  'js/i18n.js', 'js/storage.js', 'js/quiz.js', 'js/decks/capitals.js', 'js/config.js', 'js/speech.js',
+  'js/i18n.js', 'js/storage.js', 'js/sync.js', 'js/quiz.js', 'js/decks/capitals.js', 'js/config.js', 'js/speech.js',
   'js/flag.js', 'js/map.js', 'js/render.js', 'js/ui.js',
   'fonts/instrument-serif-latin-400-normal.woff2', 'fonts/instrument-serif-latin-ext-400-normal.woff2',
   'fonts/twemoji-country-flags.woff2',
@@ -46,7 +46,9 @@ function fromCache(req) {
 
 self.addEventListener('fetch', function (e) {
   var req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  var url = new URL(req.url);
+  // Sync calls always go straight to the server.
+  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.indexOf('/api/') === 0) return;
   // no-cache: always check with the server (a 304 when nothing changed),
   // so the browser's own HTTP cache can't hold back an update either.
   var net = fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(function (res) {

@@ -1,0 +1,9 @@
+{
+  "name": "capitals",
+  "private": true,
+  "type": "module",
+  "description": "Static app; the only server code is api/sync.js (progress sync between devices).",
+  "dependencies": {
+    "@vercel/blob": "^2.8.2"
+  }
+}

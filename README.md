@@ -1,17 +1,17 @@
 # Capitals
 
-A small, dark, offline-friendly web app for learning the world's capitals, with the flag and a locator map on every question. Plain HTML, CSS and JavaScript; no build step, no dependencies.
+A small, dark, offline-friendly web app for learning the world's capitals, with the flag and a locator map on every question. Plain HTML, CSS and JavaScript with no build step. The only server code is one small Vercel function for syncing progress between devices.
 
 ## Run it locally
 
 Either:
 
-- **Open `index.html`** straight from the folder (double-click). Everything works, except the offline cache, which needs a server.
+- **Open `index.html`** straight from the folder (double-click). Everything works except the offline cache and sync, which need a server.
 - **Or serve the folder** (recommended, and what a phone on the same Wi-Fi can open):
 
   ```sh
   cd capitals
-  python3 -m http.server 8000
+  python3 -m http.server 8000   # or `vercel dev` to include sync
   # then open http://localhost:8000 (or http://<your-computer's-IP>:8000 on your phone)
   ```
 
@@ -33,6 +33,9 @@ data/countries-es.js   Spanish names, notes and accepted spellings, by ISO code
 data/map.js            generated world outlines, loaded after the home screen paints
 js/i18n.js             CA.i18n: interface text in English and Spanish
 js/storage.js          CA.store: settings + progress, versioned localStorage, export/import/reset
+js/sync.js             CA.sync: sync code, syncing progress with api/sync
+api/sync.js            Vercel function: merges and stores synced progress in Vercel Blob
+package.json           @vercel/blob, the function's only dependency
 js/quiz.js             CA.quiz: pools, the review list, sessions (deck-agnostic)
 js/decks/capitals.js   the capitals deck definition
 js/config.js           which deck is active, review lengths
@@ -62,19 +65,20 @@ tools/build-map.mjs    regenerates data/map.js (optional, needs Node)
 Progress lives in `localStorage` under `capitals-app:v1`:
 
 ```js
-{ version: 1, settings: {...}, decks: { capitals: { items: { FR: { r, w, s, t } } } } }
+{ version: 1, settings: {...}, decks: { capitals: { items: { FR: { r, w, s, t } }, resetAt } } }
 ```
 
-`r`/`w` are right/wrong counts, `s` the miss score, `t` last seen. To change the shape, bump `VERSION` in `js/storage.js` and add a function to `MIGRATIONS`; old data is found under the previous key and upgraded. Export and Import in Settings save and load this object as JSON.
+`r`/`w` are right/wrong counts, `s` the miss score, `t` last seen, `resetAt` when progress was last reset. To change the shape, bump `VERSION` in `js/storage.js` and add a function to `MIGRATIONS`; old data is found under the previous key and upgraded. Export and Import in Settings save and load this object as JSON.
 
-To swap in a backend or account sync, give the store a different adapter before it starts. The UI doesn't change:
+## Sync between devices
 
-```js
-CA.store.useAdapter({
-  read: () => /* return the saved object or null */,
-  write: (data) => /* save it */
-});
-```
+Settings → **Sync between devices** keeps progress the same on a phone and a computer, without accounts.
+
+- **Create sync code** makes a random 12-character code (`xxxx-xxxx-xxxx`, about 59 bits). **Share link** sends `…/#sync=<code>`; opening it on another device links that device, or type the code in Settings there. Anyone with the code can read and change that progress, so it's treated like a password.
+- `js/sync.js` posts this device's progress to `api/sync.js` when the app opens or comes back to the front, about 4 seconds after an answer, and when the app is put away. The function merges it with the stored copy and returns the result, which is merged back in. Merging keeps, for each country, the copy answered most recently, and drops anything older than the latest reset, so Reset progress clears every linked device. Linking a device that already has progress merges both.
+- The copy lives in a private Vercel Blob store (`capitals-sync`, connected to the project, which sets `BLOB_READ_WRITE_TOKEN`) at `sync/<code>/capitals.json`. Reads skip the cache, and writes use the blob's ETag, so two devices saving at once don't overwrite each other. The function only stores well-formed items and caps the body at 200 KB.
+- Settings, such as language or answer mode, stay per device.
+- To run the function locally: `vercel link`, `vercel env pull .env.local`, then `vercel dev`.
 
 ## Adding a deck
 

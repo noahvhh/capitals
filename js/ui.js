@@ -594,6 +594,11 @@
     var hasReverse = deck.directions.some(function (d) { return d.mediaOnReveal; });
     $('[data-setting="mediaBeforeReveal"]').closest('.toggle-row').hidden = !hasReverse;
     reflectSettings();
+    renderSync();
+    renderProgressSummary();
+  }
+
+  function renderProgressSummary() {
     var sum = store.deckSummary(deck.id);
     $('#progress-summary').textContent = sum.right + sum.wrong
       ? t('progress.summary', { seen: sum.seen, total: deck.items.length, right: sum.right, wrong: sum.wrong })
@@ -620,6 +625,56 @@
   function message(text) {
     $('#settings-msg').textContent = text;
   }
+
+  /* ---------- sync between devices ---------- */
+
+  function renderSync() {
+    var c = CA.sync.code();
+    $('#sync-off').hidden = !!c;
+    $('#sync-on').hidden = !c;
+    $('#sync-code').textContent = CA.sync.format(c);
+    renderSyncStatus();
+  }
+
+  function renderSyncStatus() {
+    var s = CA.sync.status;
+    $('#sync-status').textContent = s.state === 'syncing' ? t('sync.syncing')
+      : s.state === 'error' ? t('sync.error')
+      : s.state === 'ok' ? t('sync.ok', { time: new Date(s.at).toLocaleTimeString(CA.i18n.lang, { hour: '2-digit', minute: '2-digit' }) })
+      : '';
+  }
+
+  function syncMessage(text) { $('#sync-msg').textContent = text; }
+
+  function linkDevice(code, msgKey) {
+    CA.sync.start(code);
+    renderSync();
+    syncMessage(t(msgKey));
+  }
+
+  function shareSyncLink() {
+    var url = CA.sync.link();
+    var touch = root.matchMedia && root.matchMedia('(pointer: coarse)').matches;
+    if (navigator.share && touch) {
+      navigator.share({ title: t('sync.shareTitle'), url: url }).catch(function () {});
+      return;
+    }
+    var copied = navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject();
+    copied.then(function () { syncMessage(t('sync.copied')); }, function () { syncMessage(url); });
+  }
+
+  $('#sync-join').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var c = CA.sync.parse($('#sync-input').value);
+    if (!c) { syncMessage(t('sync.badCode')); return; }
+    $('#sync-input').value = '';
+    linkDevice(c, 'sync.linked');
+  });
+
+  CA.sync.onStatus(function (s) {
+    if (current === 'settings') { renderSyncStatus(); if (s.state === 'ok') renderProgressSummary(); }
+    if (current === 'home' && s.state === 'ok') renderHome();
+  });
 
   function exportProgress() {
     var blob = new Blob([store.exportJSON()], { type: 'application/json' });
@@ -706,7 +761,7 @@
     'start-mixed': function () {
       startSession({ title: t('session.mixed'), items: mixedPool() });
     },
-    'open-settings': function () { renderSettings(); message(''); show('settings'); },
+    'open-settings': function () { renderSettings(); message(''); syncMessage(''); show('settings'); },
     'reveal': function () { reveal(false); },
     'choose': function (el) { choose(el); },
     'hint': hint,
@@ -724,6 +779,10 @@
     },
     'toggle-autoplay': toggleAutoplay,
     'test-voice': function () { say(t('settings.testPhrase')); },
+    'sync-create': function () { linkDevice(CA.sync.generate(), 'sync.created'); },
+    'sync-share': shareSyncLink,
+    'sync-now': function () { CA.sync.now(); },
+    'sync-stop': function () { CA.sync.stop(); renderSync(); syncMessage(t('sync.stopped')); },
     'export': exportProgress,
     'import': function () { $('#import-file').click(); },
     'reset': confirmReset
@@ -762,6 +821,16 @@
   document.body.setAttribute('data-screen', 'home');
   reflectSettings();
   setLanguage(settings.language || CA.i18n.preferred(), false);
+  CA.sync.init(deck.id);
+
+  // A sync link (…#sync=abcd-efgh-jkmn) links this device and shows it.
+  var linked = /^#sync=/.test(location.hash) && CA.sync.parse(location.hash);
+  if (linked) {
+    history.replaceState(null, '', location.pathname + location.search);
+    if (linked !== CA.sync.code()) linkDevice(linked, 'sync.linked');
+    renderSettings();
+    show('settings');
+  }
 
   // Fetch the map outlines once the home screen is up, so the first
   // question doesn't wait for them.

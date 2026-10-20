@@ -199,6 +199,28 @@
           <button class="btn btn-block" data-action="test-voice"><svg class="icon"><use href="#i-speaker"/></svg><span data-i18n="settings.testVoice">Test voice</span></button>
         </div>
 
+        <h3 class="section-title" data-i18n="sync.title">Sync between devices</h3>
+        <div class="sync-off" id="sync-off">
+          <p class="hint" data-i18n="sync.intro">Use the same progress on your phone and your computer. Create a code here, then open the link or type the code on your other device.</p>
+          <button class="btn btn-primary btn-block" data-action="sync-create" data-i18n="sync.create">Create sync code</button>
+          <form class="sync-join" id="sync-join" novalidate>
+            <input class="text-input" id="sync-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-i18n-placeholder="sync.enter" data-i18n-aria="sync.enter" placeholder="Have a code? Type it here">
+            <button class="btn" type="submit" data-i18n="sync.link">Link</button>
+          </form>
+        </div>
+        <div class="sync-on" id="sync-on" hidden>
+          <span class="field-label" data-i18n="sync.codeLabel">Sync code</span>
+          <p class="sync-code display" id="sync-code"></p>
+          <p class="hint" data-i18n="sync.keep">On your other device, open the link or type this code in Settings. Keep it to yourself: anyone with it can see and change your progress.</p>
+          <div class="row-2">
+            <button class="btn btn-block" data-action="sync-share" data-i18n="sync.share">Share link</button>
+            <button class="btn btn-block" data-action="sync-now" data-i18n="sync.now">Sync now</button>
+          </div>
+          <p class="hint small" id="sync-status" aria-live="polite"></p>
+          <button class="btn btn-ghost btn-block" data-action="sync-stop" data-i18n="sync.stop">Stop syncing on this device</button>
+        </div>
+        <p class="hint small sync-msg" id="sync-msg" role="status" aria-live="polite"></p>
+
         <h3 class="section-title" data-i18n="settings.progress">Progress</h3>
         <p class="hint" id="progress-summary"></p>
         <div class="row-2">
@@ -229,6 +251,7 @@
   <script src="data/countries-es.js" defer></script>
   <script src="js/i18n.js" defer></script>
   <script src="js/storage.js" defer></script>
+  <script src="js/sync.js" defer></script>
   <script src="js/quiz.js" defer></script>
   <script src="js/decks/capitals.js" defer></script>
   <script src="js/config.js" defer></script>

@@ -9,9 +9,11 @@
  * Shape (version 1):
  *   { version: 1,
  *     settings: { ... },
- *     decks: { <deckId>: { items: { <itemId>: { r, w, s, t } } } } }
+ *     decks: { <deckId>: { items: { <itemId>: { r, w, s, t } }, resetAt } } }
  *   r = times right, w = times wrong, s = miss score (rises on a miss,
- *   halves on a hit), t = last seen (ms since epoch)
+ *   halves on a hit), t = last seen (ms since epoch), resetAt = when
+ *   progress was last reset (0 if never). Devices sync this through
+ *   js/sync.js.
  */
 (function (root) {
   var CA = root.CA = root.CA || {};
@@ -24,6 +26,7 @@
     direction: 'forward',     // forward | reverse | mixed
     answer: 'type',           // type | choices (pick from 4) | self (reveal, then Got it / Missed)
     language: null,           // en | es; null = the browser's language
+    syncCode: null,           // 12-character code shared by synced devices (see js/sync.js)
     mediaBeforeReveal: false,
     reviewLength: 20,
     voice: false,
@@ -99,10 +102,27 @@
     if (state) adapter.write(state);
   }
   function emit() { listeners.forEach(function (fn) { fn(state); }); }
+  // Progress changed here on this device (an answer, a reset, an import).
+  var progressListeners = [];
+  function progressChanged(deckId) { progressListeners.forEach(function (fn) { fn(deckId); }); }
 
   function deck(id) {
-    if (!state.decks[id]) state.decks[id] = { items: {} };
+    if (!state.decks[id]) state.decks[id] = { items: {}, resetAt: 0 };
     return state.decks[id];
+  }
+
+  // For each item keep the copy answered most recently; drop anything from
+  // before the latest reset. api/sync.js merges the same way.
+  function merge(a, b) {
+    var resetAt = Math.max(a.resetAt || 0, b.resetAt || 0), items = {};
+    [a.items || {}, b.items || {}].forEach(function (src) {
+      Object.keys(src).forEach(function (id) {
+        var it = src[id], cur = items[id];
+        if (!(it.t > resetAt)) return;
+        if (!cur || it.t > cur.t || (it.t === cur.t && it.r + it.w > cur.r + cur.w)) items[id] = it;
+      });
+    });
+    return { items: items, resetAt: resetAt };
   }
 
   CA.store = {
@@ -133,8 +153,21 @@
       if (correct) { it.r++; it.s = it.s * 0.5; if (it.s < 0.05) it.s = 0; }
       else { it.w++; it.s = it.s + 1; }
       it.t = Date.now();
-      persist(); emit();
+      persist(); emit(); progressChanged(deckId);
       return it;
+    },
+    onProgress: function (fn) { progressListeners.push(fn); },
+    // A copy of one deck's progress, for syncing.
+    deckData: function (deckId) {
+      return JSON.parse(JSON.stringify(deck(deckId)));
+    },
+    // Merge progress from another device into this one.
+    mergeDeckData: function (deckId, data) {
+      var d = deck(deckId), merged = merge(d, data || {});
+      if (JSON.stringify(merged) === JSON.stringify({ items: d.items, resetAt: d.resetAt || 0 })) return false;
+      state.decks[deckId] = merged;
+      persist(); emit();
+      return true;
     },
     deckSummary: function (deckId) {
       var items = deck(deckId).items, seen = 0, r = 0, w = 0;
@@ -157,12 +190,17 @@
       delete data.app; delete data.exportedAt;
       state = migrate(data);
       flush(); emit();
+      Object.keys(state.decks).forEach(progressChanged);
     },
+    // Clears progress. The reset time is kept, so synced devices drop
+    // their older answers too instead of bringing them back.
     reset: function () {
-      var keep = state.settings;
+      var keep = state.settings, ids = Object.keys(state.decks), now = Date.now();
       state = fresh();
       state.settings = keep;
+      ids.forEach(function (id) { state.decks[id] = { items: {}, resetAt: now }; });
       flush(); emit();
+      ids.forEach(progressChanged);
     }
   };
 })(window);
