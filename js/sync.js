@@ -4,9 +4,17 @@
  * recent answer wins). The code comes from signing in to an account
  * (api/account.js), or one device creates it and the others type it in.
  *
- * It syncs when the app opens or comes back to the front, a few seconds
- * after answering, and when the app is put away. Failures are quiet: the
- * next sync carries everything, since nothing is sent as a diff.
+ * When it syncs:
+ *   - as soon as a quiz ends (flush), and 20 s after the last answer if
+ *     a quiz is left open;
+ *   - when the app is hidden (phone locked, app switched, tab closed),
+ *     with sendBeacon, which the browser delivers even as it suspends
+ *     the page; a plain fetch there is often dropped on phones;
+ *   - when the app opens, and when it comes back to the front or the
+ *     window is focused again, if the last sync is over 15 s old.
+ * Writes are kept to about one per quiz because the free Blob plan
+ * allows 2,000 a month. Failures are quiet: every sync sends all of this
+ * device's progress, so the next one catches up.
  *
  * The code is the only key, so it's long and random (12 characters from a
  * 31-symbol alphabet, about 59 bits).
@@ -15,9 +23,11 @@
   var CA = root.CA = root.CA || {};
   var ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';  // no i, l, o, 0, 1
   var ENDPOINT = 'api/sync';
-  var AFTER_ANSWER_MS = 4000, STALE_MS = 15000;
+  var AFTER_ANSWER_MS = 20000, STALE_MS = 15000;
 
   var deckId = null, timer = null, pending = false, inflight = null, again = false;
+  var dirty = false;      // answers given here that haven't been sent yet
+  var lastTry = 0;
   var status = { state: 'idle', at: 0 };
   var listeners = [];
 
@@ -55,18 +65,24 @@
     listeners.forEach(function (fn) { fn(status); });
   }
 
+  function payload(c) {
+    return JSON.stringify({ code: c, deck: deckId, data: CA.store.deckData(deckId) });
+  }
+
   // Send this device's progress; take back the merged copy.
-  function now(opts) {
+  function now() {
     var c = code();
     if (!c || !deckId) return Promise.resolve(false);
     clearTimeout(timer); pending = false;
     if (inflight) { again = true; return inflight; }
+    var sentDirty = dirty;
+    dirty = false;
+    lastTry = Date.now();
     setStatus('syncing');
     inflight = fetch(ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: c, deck: deckId, data: CA.store.deckData(deckId) }),
-      keepalive: !!(opts && opts.leaving),
+      body: payload(c),
       cache: 'no-store'
     }).then(function (res) {
       if (!res.ok) throw new Error('sync ' + res.status);
@@ -78,6 +94,7 @@
       setStatus('ok');
       return true;
     }).catch(function () {
+      dirty = dirty || sentDirty;
       setStatus('error');
       return false;
     }).then(function (ok) {
@@ -86,6 +103,26 @@
       return ok;
     });
     return inflight;
+  }
+
+  // While the page is being hidden: hand the progress to the browser to
+  // deliver. The reply can't be read, so the merged copy comes back on
+  // the next sync.
+  function beacon() {
+    var c = code();
+    if (!c || !deckId) return;
+    clearTimeout(timer); pending = false; dirty = false;
+    var body = payload(c), sent = false;
+    try {
+      // text/plain keeps it a simple request; the function parses the text.
+      sent = !!navigator.sendBeacon && navigator.sendBeacon(ENDPOINT, new Blob([body], { type: 'text/plain;charset=UTF-8' }));
+    } catch (e) { /* fall back below */ }
+    if (!sent) fetch(ENDPOINT, { method: 'POST', body: body, keepalive: true }).catch(function () {});
+  }
+
+  // Send now if there are answers not sent yet (a quiz just ended).
+  function flush() {
+    return dirty || pending ? now() : Promise.resolve(true);
   }
 
   function schedule(ms) {
@@ -140,12 +177,20 @@
 
   function init(id) {
     deckId = id;
-    CA.store.onProgress(function (d) { if (d === deckId) schedule(AFTER_ANSWER_MS); });
-    document.addEventListener('visibilitychange', function () {
-      if (!code()) return;
-      if (document.visibilityState === 'hidden') { if (pending) now({ leaving: true }); }
-      else if (Date.now() - status.at > STALE_MS) now();
+    CA.store.onProgress(function (d) {
+      if (d !== deckId) return;
+      dirty = true;
+      schedule(AFTER_ANSWER_MS);
     });
+    function leaving() { if (code() && dirty) beacon(); }
+    function back() { if (code() && Date.now() - lastTry > STALE_MS) now(); }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') leaving(); else back();
+    });
+    root.addEventListener('pagehide', leaving);
+    // Coming back to a window that stayed visible (another window was in
+    // front) doesn't change visibility, so listen for focus too.
+    root.addEventListener('focus', back);
     root.addEventListener('online', function () { if (code()) now(); });
     if (code()) now();
   }
@@ -153,6 +198,7 @@
   CA.sync = {
     init: init,
     now: now,
+    flush: flush,
     start: start,
     stop: stop,
     account: account,

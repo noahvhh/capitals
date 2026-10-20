@@ -100,6 +100,7 @@
       ? t('home.stats', { seen: sum.seen, total: deck.items.length, pct: Math.round(100 * sum.right / total) })
       : t('home.toLearn', { n: deck.items.length });
     $('#account-btn-label').textContent = CA.sync.user() || t('account.button');
+    renderHomeSync();
 
     var due = dueItems().length;
     $('#btn-review').disabled = !due;
@@ -495,6 +496,8 @@
   function finish() {
     clearTimers();
     releaseWakeLock();
+    // Send this quiz's answers straight away, before the phone is put down.
+    CA.sync.flush();
     input.blur();
     var graded = session.history.filter(function (h) { return h.graded !== null; });
     var right = graded.filter(function (h) { return h.graded; }).length;
@@ -673,13 +676,25 @@
     });
   });
 
-  function renderSyncStatus() {
+  function syncStatusText() {
     var s = CA.sync.status;
-    $('#sync-status').textContent = !CA.sync.code() ? ''
+    return !CA.sync.code() ? ''
       : s.state === 'syncing' ? t('sync.syncing')
       : s.state === 'error' ? t('sync.error')
       : s.state === 'ok' ? t('sync.ok', { time: new Date(s.at).toLocaleTimeString(CA.i18n.lang, { hour: '2-digit', minute: '2-digit' }) })
       : '';
+  }
+
+  function renderSyncStatus() {
+    $('#sync-status').textContent = syncStatusText();
+  }
+
+  // Home: when syncing, a small line with the last sync; tap to sync now.
+  function renderHomeSync() {
+    var el = $('#home-sync');
+    el.hidden = !CA.sync.code();
+    $('span', el).textContent = syncStatusText();
+    el.classList.toggle('is-error', CA.sync.status.state === 'error');
   }
 
   function syncMessage(text) { $('#sync-msg').textContent = text; }
@@ -714,7 +729,7 @@
   CA.sync.onStatus(function (s) {
     if (current === 'account') renderSyncStatus();
     if (current === 'settings' && s.state === 'ok') renderProgressSummary();
-    if (current === 'home' && s.state === 'ok') renderHome();
+    if (current === 'home') { if (s.state === 'ok') renderHome(); else renderHomeSync(); }
   });
 
   function exportProgress() {

@@ -5,7 +5,7 @@
  * offline, or when the network takes more than a few seconds.
  * Bump VERSION when files change.
  */
-var VERSION = 'capitals-v7';
+var VERSION = 'capitals-v8';
 var FILES = [
   './', 'index.html', 'css/styles.css',
   'data/countries.js', 'data/countries-es.js', 'data/map.js',

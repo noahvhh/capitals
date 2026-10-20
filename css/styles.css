@@ -190,6 +190,15 @@ button, input { font: inherit; color: inherit; }
 .home-head { position: relative; padding: 2.5rem 0 1.75rem; }
 .lang-btn { position: absolute; top: 0.25rem; right: -0.65rem; }
 .account-btn { position: absolute; top: 0.25rem; left: -0.65rem; max-width: 55%; }
+.home-sync {
+  display: inline-flex; align-items: center; gap: 0.35rem; margin: 0.35rem 0 0 -0.4rem; padding: 0.3rem 0.4rem;
+  border: 0; border-radius: 6px; background: transparent; cursor: pointer;
+  font-size: 0.8rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums;
+  transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+.home-sync .icon { width: 14px; height: 14px; }
+.home-sync.is-error { color: var(--destructive); }
+@media (hover: hover) { .home-sync:hover { color: var(--foreground); background: var(--surface); } }
 .account-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-head h1 { font-size: clamp(3.25rem, 15vw, 4.75rem); line-height: 0.95; letter-spacing: -0.02em; }
 .home-stats { margin-top: 0.6rem; font-size: 0.875rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
