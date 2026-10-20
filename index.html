@@ -32,17 +32,12 @@
     <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13"/></symbol>
   </svg>
 
-  <canvas id="swirl" aria-hidden="true"></canvas>
-  <div class="swirl-fallback" aria-hidden="true"></div>
-
   <main id="app">
     <!-- Home -->
     <section class="screen" id="screen-home" data-screen="home" aria-labelledby="home-title">
-      <header class="hero">
-        <div class="hero-vignette" aria-hidden="true"></div>
+      <header class="home-head">
         <h1 id="home-title" class="display">Capitals</h1>
-        <p class="hero-sub" id="home-sub">Every country, its capital, its flag, its place on the map.</p>
-        <p class="hero-stats" id="home-stats"></p>
+        <p class="home-stats" id="home-stats"></p>
       </header>
 
       <div class="home-body">
@@ -51,11 +46,12 @@
           <div class="segmented" role="radiogroup" aria-labelledby="dir-label" id="direction-picker"></div>
         </div>
 
-        <button class="btn btn-primary btn-block btn-lg" data-action="start-review">
+        <button class="btn btn-primary btn-block btn-lg" data-action="start-review" id="btn-review">
           <svg class="icon"><use href="#i-target"/></svg>
           <span>Review mistakes</span>
+          <span class="count" id="review-count"></span>
         </button>
-        <p class="hint">Picks at random, weighted toward the ones you miss.</p>
+        <p class="hint" id="review-hint"></p>
 
         <h2 class="section-title">By continent</h2>
         <ul class="continent-list" id="continent-list"></ul>
@@ -110,13 +106,13 @@
       </div>
 
       <div class="actions" id="quiz-actions">
-        <button class="btn btn-primary btn-block btn-lg" data-action="reveal" id="btn-reveal">Reveal</button>
+        <button class="btn btn-primary btn-block btn-lg" data-action="reveal" id="btn-reveal"><span>Reveal</span><kbd class="kbd">Space</kbd></button>
         <div class="row-2 grade" hidden id="grade-row">
           <button class="btn btn-destructive btn-lg" data-action="missed">
-            <svg class="icon"><use href="#i-close"/></svg><span>Missed</span>
+            <svg class="icon"><use href="#i-close"/></svg><span>Missed</span><kbd class="kbd" aria-hidden="true">←</kbd>
           </button>
           <button class="btn btn-primary btn-lg" data-action="got-it">
-            <svg class="icon"><use href="#i-check"/></svg><span>Got it</span>
+            <svg class="icon"><use href="#i-check"/></svg><span>Got it</span><kbd class="kbd" aria-hidden="true">→</kbd>
           </button>
         </div>
       </div>
@@ -125,8 +121,8 @@
     <!-- Session summary -->
     <section class="screen" id="screen-done" data-screen="done" aria-labelledby="done-title" hidden>
       <div class="page page-center">
-        <p class="eyebrow" id="done-mode"></p>
         <h2 class="display done-score" id="done-title"></h2>
+        <p class="done-mode" id="done-mode"></p>
         <p class="hint" id="done-sub"></p>
         <ul class="missed-list" id="done-missed"></ul>
         <button class="btn btn-primary btn-block btn-lg" data-action="retry-missed" id="btn-retry">Go over the missed ones</button>
@@ -211,7 +207,6 @@
   <script src="js/flag.js" defer></script>
   <script src="js/map.js" defer></script>
   <script src="js/render.js" defer></script>
-  <script src="js/shader.js" defer></script>
   <script src="js/ui.js" defer></script>
 </body>
 </html>

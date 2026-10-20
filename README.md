@@ -10,7 +10,7 @@ Either:
 - **Or serve the folder** (recommended, and what a phone on the same Wi-Fi can open):
 
   ```sh
-  cd capitals-app
+  cd capitals
   python3 -m http.server 8000
   # then open http://localhost:8000 (or http://<your-computer's-IP>:8000 on your phone)
   ```
@@ -19,15 +19,7 @@ On iPhone, use Share → Add to Home Screen for a full-screen app that works off
 
 ## Deploy (GitHub + Vercel)
 
-Nothing has been pushed or deployed yet. When you're ready:
-
-```sh
-cd capitals-app
-git init && git add . && git commit -m "Capitals app"
-gh repo create noahvhh/capitals --public --source . --push   # or create it on github.com and push
-```
-
-Then in Vercel: **Add New → Project → Import** the `noahvhh/capitals` repo. Framework preset **Other**, no build command, output directory `.` (the repo root). `vercel.json` already sets caching headers for the service worker and font. Every push to `main` redeploys.
+The repo is `noahvhh/capitals`, imported into Vercel as a project with framework preset **Other**, no build command and output directory `.` (the repo root). It's live at https://capitals-ecru.vercel.app, and every push to `main` redeploys. `vercel.json` sets caching headers for the service worker and fonts.
 
 After changing any file, bump `VERSION` in `sw.js` so phones pick up the new version.
 
@@ -39,14 +31,13 @@ css/styles.css         all styling (tokens at the top)
 data/countries.js      195 countries: iso2, name, capital, continent, hard, note, aka
 data/map.js            generated world outlines, loaded after the home screen paints
 js/storage.js          CA.store: settings + progress, versioned localStorage, export/import/reset
-js/quiz.js             CA.quiz: pools, weighting, sessions (deck-agnostic)
+js/quiz.js             CA.quiz: pools, the review list, sessions (deck-agnostic)
 js/decks/capitals.js   the capitals deck definition
 js/config.js           which deck is active, review lengths
 js/render.js           generic renderers for text / flag / map / image fields
-js/map.js              SVG locator map (zoom, highlight, pulsing pin)
+js/map.js              canvas locator map (camera flights, highlight, pin for small countries)
 js/flag.js             emoji flags from ISO codes
 js/speech.js           Web Speech API wrapper
-js/shader.js           home-screen WebGL swirl
 js/ui.js               screens, question flow, settings
 sw.js                  offline cache
 tools/build-map.mjs    regenerates data/map.js (optional, needs Node)
@@ -54,7 +45,7 @@ tools/build-map.mjs    regenerates data/map.js (optional, needs Node)
 
 ## How it works
 
-- **Review mistakes** picks at random, weighted by a per-country miss score. Never seen = weight 1.0, always right = 0.2, missed = up to 3.0. Each miss adds 1 to the score and each correct answer halves it, so a missed country comes back often and then fades back to normal. The last 3 asked are never repeated straight away.
+- **Review mistakes** asks only countries you've missed, worst first, up to the review length in Settings, shuffled. Each country has a miss score: a miss adds 1 and a right answer halves it, and it stays on the review list while the score is 0.3 or more. So one miss takes two right answers to clear, two misses take three. The button shows how many are waiting and is off when there are none.
 - **By continent** offers Easy, Hard and All, using the `hard` flag. **Mixed** quizzes any ticked continents. **Random** is every country, shuffled.
 - **Ask for the** capital, the country, or both (chosen per question). When asking for the country, the flag and map stay hidden until you reveal, since they'd give it away; a setting turns that off.
 - **Voice** (Settings) reads prompts and answers in en-GB at an adjustable speed. **Hands-free** reveals and moves on by itself and keeps the screen awake. iOS stops web pages when the phone is locked, so hands-free needs the screen on (it can be dimmed); no web app can keep talking with the screen fully off.
@@ -111,8 +102,8 @@ A deck is data plus a description of how to show it. The quiz logic and UI only 
 
 ## Map and flag sources
 
-- **Map**: Natural Earth (public domain) country outlines from the `world-atlas` package, 1:50m, with Tuvalu from 1:10m because it's missing at 50m. `tools/build-map.mjs` projects them to an equirectangular SVG cropped to 84°N–58°S and stores a path, pin point and bounding box per country (~107 KB gzipped). It's fetched after the home screen shows, so it doesn't slow the first load, and is then cached offline. Somaliland is drawn as part of Somalia and Northern Cyprus as part of Cyprus; Kosovo and Western Sahara are drawn as plain, unhighlighted land. If a country has no outline, the map shows the world with the continent name and a marker. To rebuild: `npm i world-atlas@2.0.2 topojson-client@3 d3-geo@3 i18n-iso-countries` then `node tools/build-map.mjs`.
-- **Flags**: emoji built from the ISO code, so there are no files and no network. iPhone, Mac and Android show them; Windows has no flag emoji, so there the app shows the two-letter code in a frame.
+- **Map**: Natural Earth (public domain) country outlines from the `world-atlas` package, 1:50m, with Tuvalu from 1:10m because it's missing at 50m. `tools/build-map.mjs` projects them to an equirectangular SVG cropped to 84°N–58°S and stores a path, pin point and bounding box per country (~107 KB gzipped). It's fetched after the home screen shows, so it doesn't slow the first load, and is then cached offline. Somaliland is drawn as part of Somalia and Northern Cyprus as part of Cyprus; Kosovo and Western Sahara are drawn as plain, unhighlighted land. If a country has no outline, the map shows the world with the continent name and a marker. `js/map.js` draws the outlines on a canvas, with simplified copies for zoomed-out views so every frame stays cheap, and moves between countries with a zoom-out, pan, zoom-in flight (van Wijk and Nuij's smooth zoom, as in `d3.interpolateZoom`). To rebuild: `npm i world-atlas@2.0.2 topojson-client@3 d3-geo@3 i18n-iso-countries` then `node tools/build-map.mjs`.
+- **Flags**: emoji built from the ISO code, so there are no image files. iPhone and Mac use their own emoji; elsewhere (Windows has no flag emoji) the app uses `fonts/twemoji-country-flags.woff2` from [country-flag-emoji-polyfill](https://github.com/talkjs/country-flag-emoji-polyfill) 0.1.8, built from Twemoji graphics (CC-BY 4.0, © Twitter, Inc and other contributors).
 - **Font**: Instrument Serif (SIL Open Font License) from `@fontsource/instrument-serif`, bundled as two small woff2 subsets.
 
 ## Data notes and uncertainties

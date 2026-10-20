@@ -2,13 +2,14 @@
  * Offline cache. Everything the app needs is precached on first visit, so
  * later visits work with weak or no Wi-Fi. Bump VERSION when files change.
  */
-var VERSION = 'capitals-v1';
+var VERSION = 'capitals-v2';
 var FILES = [
   './', 'index.html', 'css/styles.css',
   'data/countries.js', 'data/map.js',
   'js/storage.js', 'js/quiz.js', 'js/decks/capitals.js', 'js/config.js', 'js/speech.js',
-  'js/flag.js', 'js/map.js', 'js/render.js', 'js/shader.js', 'js/ui.js',
+  'js/flag.js', 'js/map.js', 'js/render.js', 'js/ui.js',
   'fonts/instrument-serif-latin-400-normal.woff2', 'fonts/instrument-serif-latin-ext-400-normal.woff2',
+  'fonts/twemoji-country-flags.woff2',
   'icons/icon.svg', 'icons/apple-touch-icon.png', 'manifest.webmanifest'
 ];
 

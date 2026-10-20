@@ -76,7 +76,7 @@
     old.forEach(function (o) {
       o.classList.add('leaving');
       o.setAttribute('aria-hidden', 'true');
-      setTimeout(function () { o.remove(); }, 700);
+      setTimeout(function () { o.remove(); }, 260);
     });
     if (!el) return;
     el.classList.add('swap-item', 'entering');

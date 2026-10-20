@@ -13,7 +13,6 @@
   store.init();
   var settings = store.getSettings();
 
-  var shader = CA.shader.init($('#swirl'));
   var current = 'home';
   var session = null, sessionInfo = null, revealed = false;
   var timers = [], autoplayPaused = false, wakeLock = null;
@@ -30,12 +29,12 @@
     setTimeout(function () {
       from.hidden = true;
       from.classList.remove('screen-leaving');
-    }, 320);
+    }, 200);
     to.hidden = false;
     to.classList.add('screen-entering');
     requestAnimationFrame(function () { requestAnimationFrame(function () { to.classList.remove('screen-entering'); }); });
     root.scrollTo(0, 0);
-    if (name === 'home') { shader.start(); renderHome(); } else shader.stop();
+    if (name === 'home') renderHome();
     var focusTarget = $('h1, h2, .icon-btn', to);
     if (focusTarget && name !== 'quiz') { focusTarget.setAttribute('tabindex', '-1'); focusTarget.focus({ preventScroll: true }); }
   }
@@ -67,15 +66,22 @@
   }
 
   function countFor(filter) { return CA.quiz.pool(deck, filter).length; }
+  function dueItems() { return CA.quiz.due(deck, function (id) { return store.getItem(deck.id, id); }); }
 
   function renderHome() {
     $('#home-title').textContent = deck.title;
-    $('#home-sub').textContent = deck.tagline || '';
     var sum = store.deckSummary(deck.id);
     var total = sum.right + sum.wrong;
     $('#home-stats').textContent = total
       ? sum.seen + ' of ' + deck.items.length + ' seen · ' + Math.round(100 * sum.right / total) + '% right'
       : deck.items.length + ' to learn';
+
+    var due = dueItems().length;
+    $('#btn-review').disabled = !due;
+    $('#review-count').textContent = due || '';
+    $('#review-hint').textContent = due
+      ? 'Missed ones stay here until you get them right a couple of times.'
+      : 'Nothing to review yet. Anything you miss shows up here.';
 
     segmented($('#direction-picker'), directionOptions(), settings.direction, function (v) {
       store.setSetting('direction', v);
@@ -104,8 +110,7 @@
         b.addEventListener('click', function () {
           startSession({
             title: g.label + ' · ' + d[1],
-            items: CA.quiz.pool(deck, { groups: [g.id], difficulty: d[0] }),
-            mode: 'sequence'
+            items: CA.quiz.pool(deck, { groups: [g.id], difficulty: d[0] })
           });
         });
         btns.appendChild(b);
@@ -185,10 +190,7 @@
     session = CA.quiz.createSession({
       deck: deck,
       items: info.items,
-      mode: info.mode,
-      length: settings.reviewLength,
       direction: settings.direction,
-      stats: function (id) { return store.getItem(deck.id, id); },
       record: function (id, ok) { store.record(deck.id, id, ok); }
     });
     autoplayPaused = false;
@@ -318,7 +320,7 @@
     });
     $('#btn-retry').hidden = !missed.length;
     $('#btn-retry').onclick = function () {
-      startSession({ title: 'Missed from ' + sessionInfo.title, items: missed, mode: 'sequence' });
+      startSession({ title: 'Missed from ' + sessionInfo.title, items: missed });
     };
     session = null;
     show('done');
@@ -464,14 +466,14 @@
   var actions = {
     'home': function () { show('home'); },
     'start-review': function () {
-      startSession({ title: 'Review', items: deck.items, mode: 'weighted' });
+      startSession({ title: 'Review', items: dueItems().slice(0, settings.reviewLength) });
     },
     'start-random': function () {
-      startSession({ title: 'Random', items: deck.items, mode: 'sequence' });
+      startSession({ title: 'Random', items: deck.items });
     },
     'open-mixed': function () { renderMixed(); show('mixed'); },
     'start-mixed': function () {
-      startSession({ title: 'Mixed', items: mixedPool(), mode: 'sequence' });
+      startSession({ title: 'Mixed', items: mixedPool() });
     },
     'open-settings': function () { renderSettings(); message(''); show('settings'); },
     'reveal': function () { reveal(false); },
@@ -516,7 +518,6 @@
   document.body.setAttribute('data-screen', 'home');
   reflectSettings();
   renderHome();
-  shader.start();
 
   // Fetch the map outlines once the home screen is up, so the first
   // question doesn't wait for them.

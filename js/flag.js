@@ -1,7 +1,8 @@
 /*
  * Flags as emoji built from the ISO code (two regional indicator letters),
- * so they need no files or network. Platforms without flag emoji (notably
- * Windows) get a neat code badge instead.
+ * so they need no image files. iPhone, Mac and Android draw them with
+ * their own emoji font; Windows has no flag emoji, so the stylesheet falls
+ * back to a bundled Twemoji flag font there (see .flag in styles.css).
  */
 (function (root) {
   var CA = root.CA = root.CA || {};
@@ -12,25 +13,6 @@
     }));
   }
 
-  var supported = null;
-  function supportsFlags() {
-    if (supported !== null) return supported;
-    try {
-      var c = document.createElement('canvas');
-      c.width = c.height = 16;
-      var ctx = c.getContext('2d');
-      ctx.textBaseline = 'top';
-      ctx.font = '16px sans-serif';
-      ctx.fillText(emoji('FR'), 0, 0);
-      var d = ctx.getImageData(0, 0, 16, 16).data, colored = 0;
-      for (var i = 0; i < d.length; i += 4) {
-        if (d[i + 3] && (Math.abs(d[i] - d[i + 1]) > 40 || Math.abs(d[i + 1] - d[i + 2]) > 40)) colored++;
-      }
-      supported = colored > 8;
-    } catch (e) { supported = true; }
-    return supported;
-  }
-
   CA.flag = {
     emoji: emoji,
     render: function (code, label) {
@@ -38,12 +20,7 @@
       el.className = 'flag';
       el.setAttribute('role', 'img');
       el.setAttribute('aria-label', 'Flag' + (label ? ' of ' + label : ''));
-      if (supportsFlags()) {
-        el.textContent = emoji(code);
-      } else {
-        el.classList.add('flag-fallback');
-        el.textContent = code.toUpperCase();
-      }
+      el.textContent = emoji(code);
       return el;
     }
   };

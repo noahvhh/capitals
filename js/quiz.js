@@ -6,17 +6,11 @@
 (function (root) {
   var CA = root.CA = root.CA || {};
 
-  // Weight for the mistakes-weighted review.
-  //   never seen      -> 1.0 (middle)
-  //   always right    -> 0.2 (lowest)
-  //   missed          -> up to 3.0, decaying as the miss score halves on
-  //                      each correct answer
-  var W_UNSEEN = 1, W_MIN = 0.2, W_MAX = 3;
-  function weight(stats) {
-    if (!stats || stats.r + stats.w === 0) return W_UNSEEN;
-    var s = stats.s || 0;
-    return W_MIN + (W_MAX - W_MIN) * (s / (s + 1));
-  }
+  // An item is due for review once it has been missed, and stays due
+  // until right answers wear its miss score (s) down below DUE. Each miss
+  // adds 1 and each right answer halves it, so one miss takes two right
+  // answers to clear, two misses take three.
+  var DUE = 0.3;
 
   function shuffle(arr) {
     var a = arr.slice();
@@ -39,6 +33,16 @@
     });
   }
 
+  // Items due for review, worst first (most missed, then most recent).
+  //   stats  function(itemId) -> { r, w, s, t } | null
+  function due(deck, stats) {
+    return deck.items
+      .map(function (it) { return { it: it, st: stats(it.id) }; })
+      .filter(function (x) { return x.st && x.st.s >= DUE; })
+      .sort(function (a, b) { return (b.st.s - a.st.s) || (b.st.t - a.st.t); })
+      .map(function (x) { return x.it; });
+  }
+
   function pickDirection(deck, setting) {
     var ids = deck.directions.map(function (d) { return d.id; });
     if (setting === 'mixed') return ids[Math.floor(Math.random() * ids.length)];
@@ -46,37 +50,18 @@
   }
 
   /*
-   * createSession(opts)
+   * createSession(opts): asks each of opts.items once, in random order.
    *   deck       deck definition
-   *   items      the pool to ask from
-   *   mode       'weighted' (review) or 'sequence' (each item once, shuffled)
-   *   length     number of questions for 'weighted'
+   *   items      the items to ask
    *   direction  a direction id or 'mixed' (chosen per question)
-   *   stats      function(itemId) -> { r, w, s } | null
    *   record     function(itemId, correct)
    */
   function createSession(opts) {
-    var items = opts.items;
-    var total = opts.mode === 'weighted' ? Math.min(opts.length || 20, Math.max(items.length, 1) * 3) : items.length;
-    var order = opts.mode === 'weighted' ? null : shuffle(items);
-    var recent = [];
+    var order = shuffle(opts.items);
+    var total = order.length;
     var history = [];
     var index = -1;
     var current = null;
-
-    function weightedPick() {
-      var avoid = Math.min(3, items.length - 1);
-      var blocked = recent.slice(-avoid);
-      var candidates = items.filter(function (it) { return blocked.indexOf(it.id) === -1; });
-      var weights = candidates.map(function (it) { return weight(opts.stats(it.id)); });
-      var sum = weights.reduce(function (a, b) { return a + b; }, 0);
-      var x = Math.random() * sum;
-      for (var i = 0; i < candidates.length; i++) {
-        x -= weights[i];
-        if (x <= 0) return candidates[i];
-      }
-      return candidates[candidates.length - 1];
-    }
 
     return {
       get index() { return index; },
@@ -84,11 +69,9 @@
       get current() { return current; },
       get history() { return history; },
       next: function () {
-        if (index + 1 >= total || !items.length) { current = null; return null; }
+        if (index + 1 >= total) { current = null; return null; }
         index++;
-        var item = order ? order[index] : weightedPick();
-        recent.push(item.id);
-        current = { item: item, direction: pickDirection(opts.deck, opts.direction), graded: null };
+        current = { item: order[index], direction: pickDirection(opts.deck, opts.direction), graded: null };
         return current;
       },
       grade: function (correct) {
@@ -104,5 +87,5 @@
     };
   }
 
-  CA.quiz = { weight: weight, shuffle: shuffle, pool: pool, createSession: createSession };
+  CA.quiz = { shuffle: shuffle, pool: pool, due: due, createSession: createSession };
 })(window);
