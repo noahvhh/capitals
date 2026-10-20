@@ -1,7 +1,8 @@
 /*
- * Sync between devices, without accounts. One device creates a random
- * sync code; every device with that code merges its progress with a copy
- * kept by api/sync.js, country by country (the most recent answer wins).
+ * Sync between devices. Devices that share a sync code merge their
+ * progress with a copy kept by api/sync.js, country by country (the most
+ * recent answer wins). The code comes from signing in to an account
+ * (api/account.js), or one device creates it and the others type it in.
  *
  * It syncs when the app opens or comes back to the front, a few seconds
  * after answering, and when the app is put away. Failures are quiet: the
@@ -102,7 +103,39 @@
   function stop() {
     clearTimeout(timer);
     CA.store.setSetting('syncCode', null);
+    CA.store.setSetting('account', null);
     setStatus('idle');
+  }
+
+  /*
+   * Accounts (api/account.js): a username and password stand for a sync
+   * code. Signing up keeps the code this device already syncs with, if
+   * any. Rejects with Error(code): bad-username, bad-password, taken,
+   * wrong, or offline.
+   */
+  function account(action, username, password) {
+    return fetch('api/account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: action, username: username, password: password, key: action === 'signup' ? code() : null }),
+      cache: 'no-store'
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (!res.ok || !body.key) throw new Error(body.error || 'offline');
+        return body;
+      });
+    }, function () {
+      throw new Error('offline');
+    }).then(function (body) {
+      CA.store.setSetting('account', { username: body.username });
+      start(body.key);
+      return body;
+    });
+  }
+
+  function user() {
+    var a = CA.store.getSettings().account;
+    return a && code() ? a.username : null;
   }
 
   function init(id) {
@@ -122,6 +155,8 @@
     now: now,
     start: start,
     stop: stop,
+    account: account,
+    user: user,
     generate: generate,
     parse: parse,
     format: format,

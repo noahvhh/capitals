@@ -31,6 +31,7 @@
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13"/></symbol>
     <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.75"/><path d="M4.75 19.5c1.3-3.3 4-5 7.25-5s5.95 1.7 7.25 5"/></symbol>
     <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5S9.7 5.9 12 3.5z"/></symbol>
   </svg>
 
@@ -38,6 +39,9 @@
     <!-- Home -->
     <section class="screen" id="screen-home" data-screen="home" aria-labelledby="home-title">
       <header class="home-head">
+        <button class="btn btn-ghost btn-sm account-btn" data-action="open-account">
+          <svg class="icon"><use href="#i-user"/></svg><span id="account-btn-label">Sign in</span>
+        </button>
         <button class="btn btn-ghost btn-sm lang-btn" data-action="toggle-lang" lang="es">
           <svg class="icon"><use href="#i-globe"/></svg><span data-i18n="lang.switch">Español</span>
         </button>
@@ -148,6 +152,69 @@
       </div>
     </section>
 
+    <!-- Account and sync -->
+    <section class="screen" id="screen-account" data-screen="account" aria-labelledby="account-title" hidden>
+      <div class="topbar">
+        <button class="icon-btn" data-action="home" data-i18n-aria="nav.back" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2 id="account-title" class="topbar-title display" data-i18n="account.title">Account</h2>
+        <span class="icon-btn-spacer"></span>
+      </div>
+      <div class="page">
+        <!-- Signed out -->
+        <div class="account-out" id="account-out">
+          <p class="hint" data-i18n="account.intro">Sign in to keep the same progress on your phone and your computer.</p>
+          <div class="segmented" role="radiogroup" data-i18n-aria="account.title" aria-label="Account" id="account-mode"></div>
+          <form class="account-form" id="account-form" novalidate>
+            <label class="input-label"><span data-i18n="account.username">Username</span>
+              <input class="text-input" id="account-user" name="username" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="32">
+            </label>
+            <label class="input-label"><span data-i18n="account.password">Password</span>
+              <input class="text-input" id="account-pass" name="password" type="password" autocomplete="current-password" maxlength="200">
+            </label>
+            <p class="hint small account-msg" id="account-msg" role="alert"></p>
+            <button class="btn btn-primary btn-block btn-lg" type="submit" id="account-submit"></button>
+          </form>
+          <p class="hint small" data-i18n="account.noEmail">There’s no email or password reset, so keep your password somewhere safe.</p>
+
+          <details class="code-alt" id="code-alt">
+            <summary data-i18n="account.codeInstead">Or sync with a code, without an account</summary>
+            <div class="code-alt-body">
+              <div class="sync-off" id="sync-off">
+                <p class="hint" data-i18n="sync.intro">Create a code here, then open the link or type the code on your other device.</p>
+                <button class="btn btn-block" data-action="sync-create" data-i18n="sync.create">Create sync code</button>
+                <form class="sync-join" id="sync-join" novalidate>
+                  <input class="text-input" id="sync-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-i18n-placeholder="sync.enter" data-i18n-aria="sync.enter" placeholder="Have a code? Type it here">
+                  <button class="btn" type="submit" data-i18n="sync.link">Link</button>
+                </form>
+              </div>
+              <div class="sync-on" id="sync-on" hidden>
+                <span class="field-label" data-i18n="sync.codeLabel">Sync code</span>
+                <p class="sync-code display" id="sync-code"></p>
+                <p class="hint" data-i18n="sync.keep">On your other device, open the link or type this code. Keep it to yourself: anyone with it can see and change your progress.</p>
+                <div class="row-2">
+                  <button class="btn btn-block" data-action="sync-share" data-i18n="sync.share">Share link</button>
+                  <button class="btn btn-block" data-action="sync-now" data-i18n="sync.now">Sync now</button>
+                </div>
+                <button class="btn btn-ghost btn-block" data-action="sync-stop" data-i18n="sync.stop">Stop syncing on this device</button>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Signed in -->
+        <div class="account-in" id="account-in" hidden>
+          <span class="field-label" data-i18n="account.signedInAs">Signed in as</span>
+          <p class="account-name display" id="account-name"></p>
+          <p class="hint" data-i18n="account.syncsHint">Sign in with the same username on your other devices. Your progress syncs by itself.</p>
+          <button class="btn btn-block" data-action="sync-now"><span data-i18n="sync.now">Sync now</span></button>
+          <button class="btn btn-ghost btn-block" data-action="sign-out" data-i18n="account.signOut">Sign out</button>
+        </div>
+
+        <p class="hint small" id="sync-status" aria-live="polite"></p>
+        <p class="hint small sync-msg" id="sync-msg" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+
     <!-- Settings -->
     <section class="screen" id="screen-settings" data-screen="settings" aria-labelledby="settings-title" hidden>
       <div class="topbar">
@@ -199,29 +266,8 @@
           <button class="btn btn-block" data-action="test-voice"><svg class="icon"><use href="#i-speaker"/></svg><span data-i18n="settings.testVoice">Test voice</span></button>
         </div>
 
-        <h3 class="section-title" data-i18n="sync.title">Sync between devices</h3>
-        <div class="sync-off" id="sync-off">
-          <p class="hint" data-i18n="sync.intro">Use the same progress on your phone and your computer. Create a code here, then open the link or type the code on your other device.</p>
-          <button class="btn btn-primary btn-block" data-action="sync-create" data-i18n="sync.create">Create sync code</button>
-          <form class="sync-join" id="sync-join" novalidate>
-            <input class="text-input" id="sync-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-i18n-placeholder="sync.enter" data-i18n-aria="sync.enter" placeholder="Have a code? Type it here">
-            <button class="btn" type="submit" data-i18n="sync.link">Link</button>
-          </form>
-        </div>
-        <div class="sync-on" id="sync-on" hidden>
-          <span class="field-label" data-i18n="sync.codeLabel">Sync code</span>
-          <p class="sync-code display" id="sync-code"></p>
-          <p class="hint" data-i18n="sync.keep">On your other device, open the link or type this code in Settings. Keep it to yourself: anyone with it can see and change your progress.</p>
-          <div class="row-2">
-            <button class="btn btn-block" data-action="sync-share" data-i18n="sync.share">Share link</button>
-            <button class="btn btn-block" data-action="sync-now" data-i18n="sync.now">Sync now</button>
-          </div>
-          <p class="hint small" id="sync-status" aria-live="polite"></p>
-          <button class="btn btn-ghost btn-block" data-action="sync-stop" data-i18n="sync.stop">Stop syncing on this device</button>
-        </div>
-        <p class="hint small sync-msg" id="sync-msg" role="status" aria-live="polite"></p>
-
         <h3 class="section-title" data-i18n="settings.progress">Progress</h3>
+        <button class="btn btn-block" data-action="open-account"><svg class="icon"><use href="#i-user"/></svg><span data-i18n="settings.account">Account and sync</span></button>
         <p class="hint" id="progress-summary"></p>
         <div class="row-2">
           <button class="btn btn-block" data-action="export" data-i18n="settings.export">Export</button>

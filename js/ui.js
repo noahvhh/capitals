@@ -99,6 +99,7 @@
     $('#home-stats').textContent = total
       ? t('home.stats', { seen: sum.seen, total: deck.items.length, pct: Math.round(100 * sum.right / total) })
       : t('home.toLearn', { n: deck.items.length });
+    $('#account-btn-label').textContent = CA.sync.user() || t('account.button');
 
     var due = dueItems().length;
     $('#btn-review').disabled = !due;
@@ -594,7 +595,6 @@
     var hasReverse = deck.directions.some(function (d) { return d.mediaOnReveal; });
     $('[data-setting="mediaBeforeReveal"]').closest('.toggle-row').hidden = !hasReverse;
     reflectSettings();
-    renderSync();
     renderProgressSummary();
   }
 
@@ -626,19 +626,57 @@
     $('#settings-msg').textContent = text;
   }
 
-  /* ---------- sync between devices ---------- */
+  /* ---------- account and sync ---------- */
 
-  function renderSync() {
-    var c = CA.sync.code();
+  var accountMode = 'login';   // login | signup
+
+  function renderAccount() {
+    var who = CA.sync.user(), c = CA.sync.code();
+    $('#account-in').hidden = !who;
+    $('#account-out').hidden = !!who;
+    $('#account-name').textContent = who || '';
+    segmented($('#account-mode'), [{ id: 'login', label: t('account.login') }, { id: 'signup', label: t('account.signup') }],
+      accountMode, function (v) { accountMode = v; $('#account-msg').textContent = ''; updateAccountForm(); });
+    updateAccountForm();
+    // Syncing with a code instead of an account.
     $('#sync-off').hidden = !!c;
     $('#sync-on').hidden = !c;
     $('#sync-code').textContent = CA.sync.format(c);
+    if (c && !who) $('#code-alt').open = true;
     renderSyncStatus();
   }
 
+  function updateAccountForm() {
+    $('#account-submit').textContent = t(accountMode === 'signup' ? 'account.signup' : 'account.login');
+    $('#account-pass').setAttribute('autocomplete', accountMode === 'signup' ? 'new-password' : 'current-password');
+  }
+
+  $('#account-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var user = $('#account-user').value.trim(), pass = $('#account-pass').value;
+    var err = !/^[a-zA-Z0-9._-]{3,32}$/.test(user) ? 'bad-username' : pass.length < 6 ? 'bad-password' : null;
+    if (err) { $('#account-msg').textContent = t('account.err.' + err); return; }
+    var btn = $('#account-submit'), mode = accountMode;
+    btn.disabled = true;
+    btn.textContent = t('account.working');
+    $('#account-msg').textContent = '';
+    CA.sync.account(mode, user, pass).then(function () {
+      $('#account-pass').value = '';
+      renderAccount();
+      syncMessage(t(mode === 'signup' ? 'account.created' : 'account.welcome'));
+    }, function (failure) {
+      var key = 'account.err.' + failure.message;
+      $('#account-msg').textContent = t(key) === key ? t('account.err.offline') : t(key);
+    }).then(function () {
+      btn.disabled = false;
+      updateAccountForm();
+    });
+  });
+
   function renderSyncStatus() {
     var s = CA.sync.status;
-    $('#sync-status').textContent = s.state === 'syncing' ? t('sync.syncing')
+    $('#sync-status').textContent = !CA.sync.code() ? ''
+      : s.state === 'syncing' ? t('sync.syncing')
       : s.state === 'error' ? t('sync.error')
       : s.state === 'ok' ? t('sync.ok', { time: new Date(s.at).toLocaleTimeString(CA.i18n.lang, { hour: '2-digit', minute: '2-digit' }) })
       : '';
@@ -646,9 +684,11 @@
 
   function syncMessage(text) { $('#sync-msg').textContent = text; }
 
+  // Linking with a code replaces any account on this device.
   function linkDevice(code, msgKey) {
+    store.setSetting('account', null);
     CA.sync.start(code);
-    renderSync();
+    renderAccount();
     syncMessage(t(msgKey));
   }
 
@@ -672,7 +712,8 @@
   });
 
   CA.sync.onStatus(function (s) {
-    if (current === 'settings') { renderSyncStatus(); if (s.state === 'ok') renderProgressSummary(); }
+    if (current === 'account') renderSyncStatus();
+    if (current === 'settings' && s.state === 'ok') renderProgressSummary();
     if (current === 'home' && s.state === 'ok') renderHome();
   });
 
@@ -761,7 +802,9 @@
     'start-mixed': function () {
       startSession({ title: t('session.mixed'), items: mixedPool() });
     },
-    'open-settings': function () { renderSettings(); message(''); syncMessage(''); show('settings'); },
+    'open-settings': function () { renderSettings(); message(''); show('settings'); },
+    'open-account': function () { renderAccount(); syncMessage(''); show('account'); },
+    'sign-out': function () { CA.sync.stop(); renderAccount(); syncMessage(t('account.signedOut')); },
     'reveal': function () { reveal(false); },
     'choose': function (el) { choose(el); },
     'hint': hint,
@@ -782,7 +825,7 @@
     'sync-create': function () { linkDevice(CA.sync.generate(), 'sync.created'); },
     'sync-share': shareSyncLink,
     'sync-now': function () { CA.sync.now(); },
-    'sync-stop': function () { CA.sync.stop(); renderSync(); syncMessage(t('sync.stopped')); },
+    'sync-stop': function () { CA.sync.stop(); renderAccount(); syncMessage(t('sync.stopped')); },
     'export': exportProgress,
     'import': function () { $('#import-file').click(); },
     'reset': confirmReset
@@ -828,8 +871,8 @@
   if (linked) {
     history.replaceState(null, '', location.pathname + location.search);
     if (linked !== CA.sync.code()) linkDevice(linked, 'sync.linked');
-    renderSettings();
-    show('settings');
+    renderAccount();
+    show('account');
   }
 
   // Fetch the map outlines once the home screen is up, so the first

@@ -27,6 +27,7 @@
     answer: 'type',           // type | choices (pick from 4) | self (reveal, then Got it / Missed)
     language: null,           // en | es; null = the browser's language
     syncCode: null,           // 12-character code shared by synced devices (see js/sync.js)
+    account: null,            // { username } when signed in; the account's code is syncCode
     mediaBeforeReveal: false,
     reviewLength: 20,
     voice: false,

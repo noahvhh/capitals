@@ -33,8 +33,9 @@ data/countries-es.js   Spanish names, notes and accepted spellings, by ISO code
 data/map.js            generated world outlines, loaded after the home screen paints
 js/i18n.js             CA.i18n: interface text in English and Spanish
 js/storage.js          CA.store: settings + progress, versioned localStorage, export/import/reset
-js/sync.js             CA.sync: sync code, syncing progress with api/sync
+js/sync.js             CA.sync: accounts, sync codes, syncing progress with api/sync
 api/sync.js            Vercel function: merges and stores synced progress in Vercel Blob
+api/account.js         Vercel function: sign up / sign in, returns the account's sync code
 package.json           @vercel/blob, the function's only dependency
 js/quiz.js             CA.quiz: pools, the review list, sessions (deck-agnostic)
 js/decks/capitals.js   the capitals deck definition
@@ -72,9 +73,10 @@ Progress lives in `localStorage` under `capitals-app:v1`:
 
 ## Sync between devices
 
-Settings → **Sync between devices** keeps progress the same on a phone and a computer, without accounts.
+The **Account** screen (the button at the top left of the home screen, or Settings → Account and sync) keeps progress the same on a phone and a computer. Underneath, every synced device shares a sync code; an account is a username and password that stands for one.
 
-- **Create sync code** makes a random 12-character code (`xxxx-xxxx-xxxx`, about 59 bits). **Share link** sends `…/#sync=<code>`; opening it on another device links that device, or type the code in Settings there. Anyone with the code can read and change that progress, so it's treated like a password.
+- **Accounts** (`api/account.js`): sign up or sign in with a username (3–32 of `a-z 0-9 . _ -`, not case-sensitive) and a password (6+ characters). The function stores `users/<username>.json` with a scrypt hash, a random salt and the account's sync code, and sign-in returns that code. Sign-up can't take an existing name (the blob is written without overwrite). Signing up on a device that already syncs with a code keeps that code, so its progress carries over. There's no email, so no password reset, and no rate limiting beyond scrypt's cost. **Sign out** stops syncing; the device keeps its progress.
+- **Sync code without an account** (under "Or sync with a code"): **Create sync code** makes a random 12-character code (`xxxx-xxxx-xxxx`, about 59 bits). **Share link** sends `…/#sync=<code>`; opening it on another device links that device, or type the code there. Anyone with the code can read and change that progress, so it's treated like a password.
 - `js/sync.js` posts this device's progress to `api/sync.js` when the app opens or comes back to the front, about 4 seconds after an answer, and when the app is put away. The function merges it with the stored copy and returns the result, which is merged back in. Merging keeps, for each country, the copy answered most recently, and drops anything older than the latest reset, so Reset progress clears every linked device. Linking a device that already has progress merges both.
 - The copy lives in a private Vercel Blob store (`capitals-sync`, connected to the project, which sets `BLOB_READ_WRITE_TOKEN`) at `sync/<code>/capitals.json`. Reads skip the cache, and writes use the blob's ETag, so two devices saving at once don't overwrite each other. The function only stores well-formed items and caps the body at 200 KB.
 - Settings, such as language or answer mode, stay per device.

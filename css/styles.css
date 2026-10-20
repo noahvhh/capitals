@@ -189,6 +189,8 @@ button, input { font: inherit; color: inherit; }
 /* ---------- home ---------- */
 .home-head { position: relative; padding: 2.5rem 0 1.75rem; }
 .lang-btn { position: absolute; top: 0.25rem; right: -0.65rem; }
+.account-btn { position: absolute; top: 0.25rem; left: -0.65rem; max-width: 55%; }
+.account-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-head h1 { font-size: clamp(3.25rem, 15vw, 4.75rem); line-height: 0.95; letter-spacing: -0.02em; }
 .home-stats { margin-top: 0.6rem; font-size: 0.875rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
 
@@ -265,6 +267,29 @@ input[type="range"] { width: 100%; accent-color: var(--foreground); height: 28px
 .text-input:focus { outline: none; border-color: #4a4a52; background: var(--surface-2); }
 .sync-code { font-size: 2.25rem; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; margin-top: -0.4rem; user-select: all; -webkit-user-select: all; }
 .sync-msg:empty, #sync-status:empty { display: none; }
+
+/* account */
+.account-out, .account-in { display: flex; flex-direction: column; gap: 1rem; }
+.account-out[hidden], .account-in[hidden] { display: none; }
+.account-form { display: flex; flex-direction: column; gap: 0.85rem; }
+.input-label { display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.8rem; color: var(--muted-foreground); }
+.input-label .text-input { flex: none; height: 48px; font-size: 1rem; }
+.account-msg { color: var(--destructive); }
+.account-msg:empty { display: none; }
+.account-name { font-size: 2.25rem; margin-top: -0.6rem; overflow-wrap: anywhere; }
+.code-alt { border-top: 1px solid var(--border); padding-top: 0.25rem; }
+.code-alt summary {
+  min-height: 44px; display: flex; align-items: center; gap: 0.5rem;
+  color: var(--muted-foreground); font-size: 0.9rem; cursor: pointer; list-style: none;
+}
+.code-alt summary::-webkit-details-marker { display: none; }
+.code-alt summary::before {
+  content: ''; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0;
+  transform: rotate(-45deg); transition: transform var(--t-fast) var(--ease); flex: none;
+}
+.code-alt[open] summary::before { transform: rotate(45deg); }
+@media (hover: hover) { .code-alt summary:hover { color: var(--foreground); } }
+.code-alt-body { padding: 0.5rem 0 0.25rem; }
 .voice-settings, .autoplay-row { display: none; }
 .voice-on .voice-settings { display: flex; flex-direction: column; gap: 1rem; }
 .autoplay-on .autoplay-row { display: flex; }
